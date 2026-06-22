@@ -1,4 +1,4 @@
-"""Integration test for api.py — respx-mocked Last.fm, real ASGI pipeline."""
+"""Integration test for api.py"""
 import httpx
 import respx
 from httpx import ASGITransport
@@ -8,7 +8,7 @@ from nexttrack.lastfm.client import BASE_URL
 from nexttrack.models import RecommendationResult
 
 # ---------------------------------------------------------------------------
-# Shared mock helpers (mirrors test_aggregate.py helpers)
+# Shared  helpers  based on test_aggregate.py
 # ---------------------------------------------------------------------------
 
 def _similar_response(tracks: list[dict]) -> dict:

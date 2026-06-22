@@ -11,7 +11,7 @@ def rank(
     candidates: list[Candidate],
     params: RecommendationParams,
 ) -> RecommendationResult:
-    # Genre lock filter (req 3.17) — drop candidates with no intersection
+    # Genre lock filter (req 3.17)
     if params.genre_lock:
         genre_set = {g.lower() for g in params.genre_lock}
         pool = [
@@ -29,7 +29,7 @@ def rank(
         scored.append(c.model_copy(update={"final_score": score}))
     scored.sort(key=lambda c: c.final_score, reverse=True)
 
-    # Artist diversity cap (req 3.18) — applied after sort so we keep the best-scoring tracks
+    # Artist diversity cap (req 3.18) post sort application
     if params.artist_diversity > 0:
         counts: dict[str, int] = {}
         diverse: list[Candidate] = []

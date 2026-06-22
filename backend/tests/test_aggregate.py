@@ -1,4 +1,4 @@
-"""Golden test for pipeline/aggregate.py — two-seed overlap case."""
+"""Golden test for pipeline/aggregate.py incl two-seed overlap case."""
 import httpx
 import pytest
 import respx
@@ -92,15 +92,10 @@ def _artist_top_tracks_response(tracks: list[tuple[str, int]]) -> dict:
 #
 # Seed tag profile: {alternative, art rock, folk}
 #
-# Candidate tags:
+# ex Candidate tags:
 #   Glory Box  → {trip-hop, alternative}   → matched: [alternative]  overlap: 1/3
 #   Teardrop   → {trip-hop, electronic}    → matched: []              overlap: 0
 #   Pink Moon  → {folk, acoustic}          → matched: [folk]          overlap: 1/3
-#
-# Playcount ceiling: 8_000_000 (Teardrop)
-#   Glory Box  novelty = 1 - 5_000_000/8_000_000 = 0.375
-#   Teardrop   novelty = 1 - 8_000_000/8_000_000 = 0.0
-#   Pink Moon  novelty = 1 - 2_000_000/8_000_000 = 0.75
 # ---------------------------------------------------------------------------
 
 SEED_A = Track(artist="Radiohead", title="Pyramid Song")

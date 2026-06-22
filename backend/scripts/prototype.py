@@ -9,12 +9,12 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-import httpx  # noqa: E402
+import httpx
 
-from nexttrack.lastfm.client import LastfmClient  # noqa: E402
-from nexttrack.models import RecommendationParams, Track  # noqa: E402
-from nexttrack.pipeline.aggregate import aggregate  # noqa: E402
-from nexttrack.pipeline.rank import rank  # noqa: E402
+from nexttrack.lastfm.client import LastfmClient
+from nexttrack.models import RecommendationParams, Track
+from nexttrack.pipeline.aggregate import aggregate
+from nexttrack.pipeline.rank import rank
 
 SEEDS = [
     Track(artist="Radiohead", title="Pyramid Song"),
