@@ -3,5 +3,8 @@ __pycache__/
 .env
 *.pyc
 .pytest_cache/
+.ruff_cache/
 .DS_Store
 CLAUDE.md
+.claude/
+backend/scripts/capture_fixtures.py

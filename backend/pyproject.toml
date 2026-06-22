@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "Vineet Erasala", email = "erasalav@gmail.com" }
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.128.8",
     "httpx>=0.28.1",
@@ -22,10 +22,16 @@ nexttrack = "nexttrack:main"
 requires = ["uv_build>=0.11.23,<0.12.0"]
 build-backend = "uv_build"
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "pytest>=8.4.2",
     "pytest-asyncio>=1.2.0",
+    "python-dotenv>=1.2.1",
     "respx>=0.23.1",
     "ruff>=0.15.18",
 ]
