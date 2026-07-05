@@ -1,10 +1,11 @@
-from __future__ import annotations
-
 from nexttrack.models import Candidate, RecommendationParams, RecommendationResult
 
 # Tunable weights for recco algorithm (req 1.07)
-W_SIM: float = 1.0   # similarity contribution
-W_TAG: float = 0.5   # tag overlap contribution
+# W_SIM and W_TAG control relative weighting *within* the relevance component.
+W_SIM: float = 1.0
+W_TAG: float = 0.5
+
+_W_TOTAL: float = W_SIM + W_TAG  # normalisation denominator for relevance
 
 
 def rank(
@@ -21,11 +22,17 @@ def rank(
     else:
         pool = list(candidates)
 
-    # Score and sort (req 2.04)
-    novelty_w = params.novelty / 100.0
+    # Score and sort -- convex novelty/relevance blend (req 2.04)
+    # final = (1-alpha)*relevance + alpha*novelty_bonus
+    # where relevance = (W_SIM*norm_sim + W_TAG*tag_overlap) / W_TOTAL  in [0,1]
+    # and   norm_sim  = summed_similarity / max_sim  (max-normalised across pool)
+    alpha = params.novelty / 100.0
+    max_sim = max((c.summed_similarity for c in pool), default=1.0) or 1.0
     scored: list[Candidate] = []
     for c in pool:
-        score = W_SIM * c.summed_similarity + W_TAG * c.tag_overlap + novelty_w * c.novelty_bonus
+        norm_sim = c.summed_similarity / max_sim
+        relevance = (W_SIM * norm_sim + W_TAG * c.tag_overlap) / _W_TOTAL
+        score = (1.0 - alpha) * relevance + alpha * c.novelty_bonus
         scored.append(c.model_copy(update={"final_score": score}))
     scored.sort(key=lambda c: c.final_score, reverse=True)
 

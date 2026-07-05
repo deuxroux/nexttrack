@@ -2,7 +2,7 @@
 import pytest
 
 from nexttrack.models import Candidate, RecommendationParams
-from nexttrack.pipeline.rank import W_SIM, W_TAG, rank
+from nexttrack.pipeline.rank import W_SIM, W_TAG, _W_TOTAL, rank
 
 
 # HELPERS
@@ -52,10 +52,13 @@ def test_novelty_100_flips_order():
 
 #verify scoring formula returns accurate score
 def test_score_formula():
+    # Single-candidate pool: max_sim = 0.8, so norm_sim = 1.0
     c = _cand("A", "T", sim=0.8, novelty_bonus=0.6, tag_overlap=0.4)
     novelty = 60
     result = rank([c], _params(novelty=novelty))
-    expected = W_SIM * 0.8 + W_TAG * 0.4 + (novelty / 100) * 0.6
+    alpha = novelty / 100
+    relevance = (W_SIM * 1.0 + W_TAG * 0.4) / _W_TOTAL
+    expected = (1 - alpha) * relevance + alpha * 0.6
     assert result.candidates[0].final_score == pytest.approx(expected)
 
 
@@ -149,6 +152,21 @@ def test_dropped_seeds_is_empty_list():
 
 
 def test_final_score_assigned_on_returned_candidates():
+    # novelty=0 => alpha=0 => final = relevance = W_SIM/W_TOTAL (tag_overlap=0, norm_sim=1)
     c = _cand("A", "T", sim=1.0, novelty_bonus=0.0, tag_overlap=0.0)
     result = rank([c], _params(novelty=0))
-    assert result.candidates[0].final_score == pytest.approx(W_SIM * 1.0)
+    assert result.candidates[0].final_score == pytest.approx(W_SIM / _W_TOTAL)
+
+
+def test_score_is_bounded_0_1():
+    # Final score must be in [0,1] for all valid inputs since the formula is a
+    # convex combination of relevance in [0,1] and novelty_bonus in [0,1].
+    cands = [
+        _cand("A", "T1", sim=1.0, novelty_bonus=1.0, tag_overlap=1.0),
+        _cand("B", "T2", sim=0.5, novelty_bonus=0.0, tag_overlap=0.5),
+        _cand("C", "T3", sim=0.1, novelty_bonus=0.3, tag_overlap=0.0),
+    ]
+    for novelty in (0, 50, 100):
+        result = rank(cands, _params(novelty=novelty, length=10))
+        for c in result.candidates:
+            assert 0.0 <= c.final_score <= 1.0 + 1e-9
