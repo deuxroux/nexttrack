@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from nexttrack.models import Candidate, RecommendationParams, RecommendationResult
 
-# Hardcoded tunable weights for the prototype (req 1.07)
+# Tunable weights for recco algorithm (req 1.07)
 W_SIM: float = 1.0   # similarity contribution
-W_TAG: float = 0.5   # tag-overlap contribution
+W_TAG: float = 0.5   # tag overlap contribution
 
 
 def rank(
@@ -29,7 +29,7 @@ def rank(
         scored.append(c.model_copy(update={"final_score": score}))
     scored.sort(key=lambda c: c.final_score, reverse=True)
 
-    # Artist diversity cap (req 3.18) post sort application
+    # artist diversity cap (req 3.18)applied after sort
     if params.artist_diversity > 0:
         counts: dict[str, int] = {}
         diverse: list[Candidate] = []
@@ -40,6 +40,7 @@ def rank(
                 counts[key] = counts.get(key, 0) + 1
         scored = diverse
 
+    #return final results list
     return RecommendationResult(
         candidates=scored[: params.length],
         dropped_seeds=[],

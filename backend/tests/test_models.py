@@ -8,6 +8,7 @@ def test_track_shape():
     assert t.mbid is None
 
 
+#confirm data type matches model with siple artist check. manually verified response.
 def test_recommendation_result_shape():
     c = Candidate(
         artist="Portishead",

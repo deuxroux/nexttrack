@@ -12,8 +12,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 API_KEY = "test_key"
 
 
-# ---------------------------------------------------------------------------
-# track.getSimilar — primary route
+# track.getSimilar primary route
 # ---------------------------------------------------------------------------
 
 @respx.mock
@@ -45,13 +44,12 @@ async def test_get_similar_tracks_mbid_none_when_empty():
     assert result.tracks[0]["mbid"] is None
 
 
-# ---------------------------------------------------------------------------
-# track.getSimilar — fallback to artist.getSimilar + artist.getTopTracks
+# track.getSimilar fallback to artist.getSimilar + artist.getTopTracks
 # ---------------------------------------------------------------------------
 
 @respx.mock
 async def test_get_similar_tracks_fallback_on_empty():
-    """Empty track.getSimilar triggers artist fallback; tracks come from top artist tracks."""
+    #Empty track.getSimilar triggers artist should fallbac to top artist tracks
     respx.get(BASE_URL, params={"method": "track.getSimilar"}).mock(
         return_value=httpx.Response(200, json={"similartracks": {"track": []}})
     )
@@ -81,7 +79,7 @@ async def test_get_similar_tracks_fallback_on_empty():
 
 @respx.mock
 async def test_get_similar_tracks_fallback_empty_artists_returns_empty():
-    """If artist.getSimilar also returns nothing, result is empty but fallback_used is True."""
+    #confirm f artist.getSimilar also returns nothing, result is empty but fallback_used = true.
     respx.get(BASE_URL, params={"method": "track.getSimilar"}).mock(
         return_value=httpx.Response(200, json={"similartracks": {"track": []}})
     )
@@ -97,7 +95,7 @@ async def test_get_similar_tracks_fallback_empty_artists_returns_empty():
 
 
 # ---------------------------------------------------------------------------
-# track.getTopTags — primary route
+# track.getTopTags primary route
 # ---------------------------------------------------------------------------
 
 @respx.mock
@@ -116,13 +114,12 @@ async def test_get_top_tags_shape():
     assert isinstance(first["count"], int)
 
 
-# ---------------------------------------------------------------------------
-# track.getTopTags — fallback to artist.getTopTags
+# confirm track.getTopTags fallback to artist.getTopTags
 # ---------------------------------------------------------------------------
 
 @respx.mock
 async def test_get_top_tags_fallback_on_empty():
-    """Empty track.getTopTags triggers artist.getTopTags fallback."""
+    #Empty track.getTopTags triggers artist.getTopTags fallback.
     respx.get(BASE_URL, params={"method": "track.getTopTags"}).mock(
         return_value=httpx.Response(200, json={"toptags": {"tag": []}})
     )
@@ -144,7 +141,7 @@ async def test_get_top_tags_fallback_on_empty():
 
 @respx.mock
 async def test_get_top_tags_fallback_empty_artist_tags_returns_empty():
-    """If artist tags also empty, result is empty with fallback_used True."""
+    #If artist tags also empty, result is empty with fallback_used True.
     respx.get(BASE_URL, params={"method": "track.getTopTags"}).mock(
         return_value=httpx.Response(200, json={"toptags": {"tag": []}})
     )
@@ -159,14 +156,13 @@ async def test_get_top_tags_fallback_empty_artist_tags_returns_empty():
     assert result.tags == []
 
 
-# ---------------------------------------------------------------------------
-# Rate limiter (req 2.18): <=5 req/s
+# Confirm Rate limiter enforces <=5 req/s
 # ---------------------------------------------------------------------------
 
 @respx.mock
 @pytest.mark.parametrize("n_requests", [6])
 async def test_rate_limit_enforces_five_per_second(n_requests: int):
-    """Six sequential requests must take >=1.0s under the 5 req/s limiter."""
+    #Six sequential requests must take >=1.0s under the 5 req/s limiter.
     fixture = json.loads((FIXTURES / "get_top_tags__radiohead__pyramid_song.json").read_text())
     respx.get(BASE_URL).mock(return_value=httpx.Response(200, json=fixture))
 

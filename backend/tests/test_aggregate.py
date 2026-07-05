@@ -1,4 +1,4 @@
-"""Golden test for pipeline/aggregate.py incl two-seed overlap case."""
+# test for pipeline/aggregate.py  two-seed overlap case. should deduplicate.
 import httpx
 import pytest
 import respx
@@ -10,8 +10,7 @@ from nexttrack.pipeline.aggregate import aggregate
 API_KEY = "test_key"
 
 
-# ---------------------------------------------------------------------------
-# Fixture builders
+# Fixturing
 # ---------------------------------------------------------------------------
 
 def _similar_track(
@@ -85,10 +84,10 @@ def _artist_top_tracks_response(tracks: list[tuple[str, int]]) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Two-seed dataset
+# Two-seed dataset. some verified matches from trial and error
 #
-# Seed A  Radiohead / Pyramid Song   → recommends Glory Box (0.9), Teardrop (0.7)
-# Seed B  Dr. Dog / Shadow People    → recommends Glory Box (0.6), Pink Moon (0.5)
+# Seed A  Radiohead / Pyramid Song recommends Glory Box (0.9), Teardrop (0.7)
+# Seed B  Dr. Dog / Shadow People  recommends Glory Box (0.6), Pink Moon (0.5)
 #
 # Seed tag profile: {alternative, art rock, folk}
 #
@@ -114,13 +113,13 @@ async def test_two_seed_overlap():
         _similar_track("Pink Moon", "Nick Drake",  match=0.5, playcount=2_000_000),
     ]))
 
-    # getTopTags — seeds
+    # getTopTags (seeds)
     _route("track.getTopTags", "Radiohead", "Pyramid Song",
            _tags_response("Radiohead", "Pyramid Song", [("alternative", 100), ("art rock", 50)]))
     _route("track.getTopTags", "Dr. Dog", "Shadow People",
            _tags_response("Dr. Dog", "Shadow People", [("alternative", 80), ("folk", 40)]))
 
-    # getTopTags — candidates
+    # getTopTags candidates
     _route("track.getTopTags", "Portishead", "Glory Box",
            _tags_response("Portishead", "Glory Box", [("trip-hop", 100), ("alternative", 60)]))
     _route("track.getTopTags", "Massive Attack", "Teardrop",
@@ -131,11 +130,11 @@ async def test_two_seed_overlap():
     async with httpx.AsyncClient() as client:
         candidates = await aggregate(LastfmClient(client, API_KEY), [SEED_A, SEED_B])
 
-    # Three unique candidates after dedup
+    # should be only three unique candidates after dedup
     assert len(candidates) == 3
     by_title = {c.title: c for c in candidates}
 
-    # --- Glory Box: overlap from both seeds ---
+    # Glory Box is the overlap from both seeds
     gb = by_title["Glory Box"]
     assert gb.artist == "Portishead"
     assert gb.summed_similarity == pytest.approx(1.5)          # 0.9 + 0.6
@@ -143,9 +142,9 @@ async def test_two_seed_overlap():
         "Radiohead/Pyramid Song",
         "Dr. Dog/Shadow People",
     }
-    assert gb.matched_tags == ["alternative"]                   # sorted intersection
-    assert gb.tag_overlap == pytest.approx(1 / 3)              # 1 of 3 seed tags
-    assert gb.novelty_bonus == pytest.approx(0.375)            # 1 - 5M/8M
+    assert gb.matched_tags == ["alternative"]
+    assert gb.tag_overlap == pytest.approx(1 / 3)
+    assert gb.novelty_bonus == pytest.approx(0.375)
 
     # --- Teardrop: single seed, no tag match ---
     td = by_title["Teardrop"]
@@ -153,7 +152,7 @@ async def test_two_seed_overlap():
     assert td.contributing_seeds == ["Radiohead/Pyramid Song"]
     assert td.matched_tags == []
     assert td.tag_overlap == pytest.approx(0.0)
-    assert td.novelty_bonus == pytest.approx(0.0)              # max playcount
+    assert td.novelty_bonus == pytest.approx(0.0)  # confirm max playcount
 
     # --- Pink Moon: single seed, one tag match ---
     pm = by_title["Pink Moon"]
@@ -166,7 +165,7 @@ async def test_two_seed_overlap():
 
 @respx.mock
 async def test_case_insensitive_dedup():
-    """Same track with different capitalisation from two seeds merges to one candidate."""
+    #Same track with different exact spelling from two seeds still need to merge to one
     _route("track.getSimilar", "Radiohead", "Pyramid Song", _similar_response([
         _similar_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
     ]))
@@ -175,7 +174,7 @@ async def test_case_insensitive_dedup():
     ]))
     _route("track.getTopTags", "Radiohead", "Pyramid Song",
            _tags_response("Radiohead", "Pyramid Song", [("alternative", 100)]))
-    # Dr. Dog track tags are empty — triggers artist.getTopTags fallback
+    # Dr. Dog track tags are empty should triggers artist.getTopTags fallback
     _route("track.getTopTags", "Dr. Dog", "Shadow People",
            _tags_response("Dr. Dog", "Shadow People", []))
     _artist_route("artist.getTopTags", "Dr. Dog",
@@ -191,16 +190,12 @@ async def test_case_insensitive_dedup():
     assert candidates[0].summed_similarity == pytest.approx(1.5)
 
 
-# ---------------------------------------------------------------------------
-# Fallback explanation (req 2.06 / 2.08)
+# Fallback explanation
 # ---------------------------------------------------------------------------
 
 @respx.mock
 async def test_fallback_seed_explanation_populated():
-    """
-    When track.getSimilar is empty for a seed, the artist fallback fires.
-    Candidates sourced via that seed carry a non-empty explanation.
-    """
+    # if track.getSimilar is empty for a seed, the artist fallback fires and needs to populate explantion
     seed = Track(artist="Dr. Dog", title="Shadow People")
 
     # track.getSimilar empty -> triggers artist.getSimilar + artist.getTopTracks
@@ -233,7 +228,7 @@ async def test_fallback_seed_explanation_populated():
 
 @respx.mock
 async def test_primary_seed_has_empty_explanation():
-    """Candidates from a seed that used only primary routes have explanation=[]."""
+    #Candidates from a seed that used only primary routes have explanation=[].
     _route("track.getSimilar", "Radiohead", "Pyramid Song", _similar_response([
         _similar_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
     ]))
@@ -245,4 +240,4 @@ async def test_primary_seed_has_empty_explanation():
     async with httpx.AsyncClient() as client:
         candidates = await aggregate(LastfmClient(client, API_KEY), [SEED_A])
 
-    assert candidates[0].explanation == []
+    assert candidates[0].explanation == [] #TODO explanations not in yet

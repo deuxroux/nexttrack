@@ -8,6 +8,7 @@ from nexttrack.models import RecommendationParams, RecommendationResult, Track
 from nexttrack.pipeline.aggregate import aggregate
 from nexttrack.pipeline.rank import rank
 
+#create fast API for debugging and viewing. will compliment later UI implementation
 app = FastAPI(title="NextTrack", version="0.1.0")
 
 
@@ -22,6 +23,7 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+#/recommend route
 @app.post("/recommend", response_model=RecommendationResult)
 async def recommend(
     request: RecommendRequest,

@@ -1,13 +1,11 @@
-"""Golden tests for pipeline/rank.py — ordering, filters, diversity, truncation."""
+#tests for pipeline/rank.py verifying ordering, filters, diversity, truncation
 import pytest
 
 from nexttrack.models import Candidate, RecommendationParams
 from nexttrack.pipeline.rank import W_SIM, W_TAG, rank
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+# HELPERS
 
 def _cand(
     artist: str,
@@ -35,12 +33,10 @@ def _params(**kw) -> RecommendationParams:
     return RecommendationParams(**(defaults | kw))
 
 
-# ---------------------------------------------------------------------------
-# Ordering — novelty sweep
-# ---------------------------------------------------------------------------
+# Ordering Tests — novelty sweep
 
 def test_novelty_0_prefers_similarity():
-    """With novelty=0 the novelty_bonus term is zero; highest sim wins."""
+    # novelty=0 means highest similarity wins
     high_sim = _cand("A", "High Sim", sim=0.9, novelty_bonus=0.1)
     high_nov = _cand("B", "High Nov", sim=0.5, novelty_bonus=0.9)
     result = rank([high_nov, high_sim], _params(novelty=0))
@@ -48,15 +44,14 @@ def test_novelty_0_prefers_similarity():
 
 
 def test_novelty_100_flips_order():
-    """With novelty=100 the novelty_bonus term dominates; obscure track rises."""
     high_sim = _cand("A", "High Sim", sim=0.9, novelty_bonus=0.1)
     high_nov = _cand("B", "High Nov", sim=0.5, novelty_bonus=0.9)
     result = rank([high_sim, high_nov], _params(novelty=100))
     assert result.candidates[0].artist == "B"
 
 
+#verify scoring formula returns accurate score
 def test_score_formula():
-    """final_score matches the documented formula with the exported weights."""
     c = _cand("A", "T", sim=0.8, novelty_bonus=0.6, tag_overlap=0.4)
     novelty = 60
     result = rank([c], _params(novelty=novelty))
@@ -64,9 +59,7 @@ def test_score_formula():
     assert result.candidates[0].final_score == pytest.approx(expected)
 
 
-# ---------------------------------------------------------------------------
-# Genre lock (req 3.17)
-# ---------------------------------------------------------------------------
+# Genre lock test
 
 def test_genre_lock_excludes_non_matching():
     rock = _cand("A", "Rock Track", sim=0.9, novelty_bonus=0.5, tags=["alternative", "rock"])
@@ -95,9 +88,7 @@ def test_genre_lock_no_match_returns_empty():
     assert result.candidates == []
 
 
-# ---------------------------------------------------------------------------
-# Artist diversity (req 3.18)
-# ---------------------------------------------------------------------------
+# Artist diversity cap tests-- verified that radiohead returns radiohead
 
 def test_artist_diversity_caps_per_artist():
     # Four Radiohead tracks; cap at 2
@@ -130,9 +121,7 @@ def test_artist_diversity_interleaves_artists():
     assert "Portishead" in artists
 
 
-# ---------------------------------------------------------------------------
-# Truncation
-# ---------------------------------------------------------------------------
+# Truncation-- exact number of tracks to be returned tests
 
 def test_length_truncates():
     cands = [_cand("A", f"T{i}", sim=float(i), novelty_bonus=0.0) for i in range(10)]
@@ -146,9 +135,7 @@ def test_length_larger_than_pool_returns_all():
     assert len(result.candidates) == 3
 
 
-# ---------------------------------------------------------------------------
-# Contract
-# ---------------------------------------------------------------------------
+# Contract confirming results
 
 def test_params_preserved_in_result():
     params = _params(novelty=42, genre_lock=["rock"], length=5)

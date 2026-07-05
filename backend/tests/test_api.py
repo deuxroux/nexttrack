@@ -7,9 +7,8 @@ from nexttrack.api import app
 from nexttrack.lastfm.client import BASE_URL
 from nexttrack.models import RecommendationResult
 
-# ---------------------------------------------------------------------------
-# Shared  helpers  based on test_aggregate.py
-# ---------------------------------------------------------------------------
+# Shared  helpers  based on test_aggregate.py.
+# ----------------------------------------------------------------------
 
 def _similar_response(tracks: list[dict]) -> dict:
     return {"similartracks": {"track": tracks}}
@@ -45,8 +44,7 @@ def _route(method: str, artist: str, track: str, body: dict) -> None:
     ).mock(return_value=httpx.Response(200, json=body))
 
 
-# ---------------------------------------------------------------------------
-# Tests
+# Tests for api routes
 # ---------------------------------------------------------------------------
 
 async def test_health() -> None:
@@ -60,16 +58,16 @@ async def test_health() -> None:
 
 @respx.mock
 async def test_recommend_200_and_valid_result() -> None:
-    """POST /recommend returns 200 and a deserializable RecommendationResult."""
+    #confirm POST /recommend returns 200 and a deserializable RecommendationResult.
     seed_artist, seed_title = "Radiohead", "Pyramid Song"
 
-    # getSimilar for the single seed
+    # getSimilar for  single seed
     _route("track.getSimilar", seed_artist, seed_title, _similar_response([
         _sim_track("Glory Box",  "Portishead",     match=0.9, playcount=5_000_000),
         _sim_track("Teardrop",   "Massive Attack", match=0.7, playcount=8_000_000),
     ]))
 
-    # getTopTags — seed + candidates
+    # getTopTags should return seed + candidates
     _route("track.getTopTags", seed_artist, seed_title,
            _tags_response(seed_artist, seed_title, [("alternative", 100)]))
     _route("track.getTopTags", "Portishead",     "Glory Box",
@@ -96,5 +94,5 @@ async def test_recommend_200_and_valid_result() -> None:
     assert r.status_code == 200
     result = RecommendationResult.model_validate(r.json())
     assert len(result.candidates) == 2
-    # Glory Box has higher score: sim=0.9, matched "alternative" (tag_overlap=1.0)
+    # Glory Box has higher score: sim=0.9, matched alternative tag_overlap=1.0
     assert result.candidates[0].title == "Glory Box"

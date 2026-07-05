@@ -7,11 +7,13 @@ import httpx
 
 BASE_URL = "https://ws.audioscrobbler.com/2.0/"
 
-_ARTIST_SIMILAR_LIMIT = 5   # similar artists to fetch when track.getSimilar is empty
+#hard code defaults
+_ARTIST_SIMILAR_LIMIT = 5   # similar artists limit; if track.getSimilar is empty
 _ARTIST_TRACKS_LIMIT = 10   # top tracks per similar artist in fallback
 _RATE_LIMIT = 5             # max outbound Last.fm requests per second
 
 
+#aggregation specific models only. others in the models.py file
 @dataclass
 class SimilarTracksResult:
     tracks: list[dict]
@@ -27,6 +29,7 @@ class TopTagsResult:
 
 
 class LastfmClient:
+    #reminder: api key is not exposed. requires an individual's key in a separate env file.
     def __init__(self, client: httpx.AsyncClient, api_key: str) -> None:
         self._client = client
         self._api_key = api_key
@@ -48,10 +51,10 @@ class LastfmClient:
         resp.raise_for_status()
         return resp.json()
 
-    # ---- public: track-level routes with artist fallback ----
+    # public fns aggregate track-level meta data routes with fallbacks
 
     async def get_similar_tracks(self, artist: str, title: str) -> SimilarTracksResult:
-        """track.getSimilar; falls back to artist.getSimilar + artist.getTopTracks if empty."""
+        #get track.getSimilar; falls back to artist.getSimilar + artist.getTopTracks if empty.
         data = await self._fetch(method="track.getSimilar", artist=artist, track=title, limit=50)
         raw = data.get("similartracks", {}).get("track", [])
         if raw:
@@ -59,14 +62,14 @@ class LastfmClient:
         return await self._fallback_artist_similar(artist, title)
 
     async def get_top_tags(self, artist: str, title: str) -> TopTagsResult:
-        """track.getTopTags; falls back to artist.getTopTags if empty."""
+        # get track.getTopTags; falls back to artist.getTopTags if empty.
         data = await self._fetch(method="track.getTopTags", artist=artist, track=title)
         raw = data.get("toptags", {}).get("tag", [])
         if raw:
             return TopTagsResult(tags=self._parse_tags(raw))
         return await self._fallback_artist_top_tags(artist, title)
 
-    # ---- private: parsers ----
+    # private data parsers. all private funtions with _
 
     @staticmethod
     def _parse_similar_tracks(raw: list[dict]) -> list[dict]:
@@ -85,7 +88,7 @@ class LastfmClient:
     def _parse_tags(raw: list[dict]) -> list[dict]:
         return [{"name": t["name"], "count": int(t["count"])} for t in raw]
 
-    # ---- private: artist.getSimilar + artist.getTopTracks fallback ----
+    #  artist.getSimilar + artist.getTopTracks fallback
 
     async def _fallback_artist_similar(self, artist: str, title: str) -> SimilarTracksResult:
         data = await self._fetch(
@@ -121,7 +124,7 @@ class LastfmClient:
             for t in raw
         ]
 
-    # ---- private: artist.getTopTags fallback ----
+    #  artist.getTopTags fallback
 
     async def _fallback_artist_top_tags(self, artist: str, title: str) -> TopTagsResult:
         data = await self._fetch(method="artist.getTopTags", artist=artist)

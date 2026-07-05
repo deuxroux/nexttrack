@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 
+#data representations in this file
 
 class Track(BaseModel):
     artist: str
@@ -23,10 +24,10 @@ class Candidate(BaseModel):
     final_score: float
     contributing_seeds: list[str]
     matched_tags: list[str]
-    explanation: list[str] = []  # non-empty when any contributing seed used a fallback route
+    explanation: list[str] = []  # non-empty if any contributing seed used a fallback route
 
 
 class RecommendationResult(BaseModel):
     candidates: list[Candidate]
     dropped_seeds: list[str]
-    params: RecommendationParams
+    params: RecommendationParams #nested details from params that contributed.
