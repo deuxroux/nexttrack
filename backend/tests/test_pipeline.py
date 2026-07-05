@@ -14,5 +14,5 @@ def test_rank_returns_recommendation_result():
         matched_tags=["trip-hop"],
     )
     params = RecommendationParams(novelty=50, genre_lock=[], artist_diversity=3, length=10)
-    result = rank([c], params)
+    result = rank([c], [], params)
     assert isinstance(result, RecommendationResult)

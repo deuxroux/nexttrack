@@ -128,8 +128,9 @@ async def test_two_seed_overlap():
            _tags_response("Nick Drake", "Pink Moon", [("folk", 80), ("acoustic", 50)]))
 
     async with httpx.AsyncClient() as client:
-        candidates = await aggregate(LastfmClient(client, API_KEY), [SEED_A, SEED_B])
+        candidates, dropped = await aggregate(LastfmClient(client, API_KEY), [SEED_A, SEED_B])
 
+    assert dropped == []
     # should be only three unique candidates after dedup
     assert len(candidates) == 3
     by_title = {c.title: c for c in candidates}
@@ -184,8 +185,9 @@ async def test_case_insensitive_dedup():
            _tags_response("Portishead", "Glory Box", [("alternative", 60)]))
 
     async with httpx.AsyncClient() as client:
-        candidates = await aggregate(LastfmClient(client, API_KEY), [SEED_A, SEED_B])
+        candidates, dropped = await aggregate(LastfmClient(client, API_KEY), [SEED_A, SEED_B])
 
+    assert dropped == []
     assert len(candidates) == 1
     assert candidates[0].summed_similarity == pytest.approx(1.5)
 
@@ -215,8 +217,9 @@ async def test_fallback_seed_explanation_populated():
            _tags_response("Blitzen Trapper", "Furr", [("indie rock", 50), ("folk", 30)]))
 
     async with httpx.AsyncClient() as client:
-        candidates = await aggregate(LastfmClient(client, API_KEY), [seed])
+        candidates, dropped = await aggregate(LastfmClient(client, API_KEY), [seed])
 
+    assert dropped == []
     assert len(candidates) == 1
     furr = candidates[0]
     assert furr.artist == "Blitzen Trapper"
@@ -238,6 +241,61 @@ async def test_primary_seed_has_empty_explanation():
            _tags_response("Portishead", "Glory Box", [("alternative", 60)]))
 
     async with httpx.AsyncClient() as client:
-        candidates = await aggregate(LastfmClient(client, API_KEY), [SEED_A])
+        candidates, dropped = await aggregate(LastfmClient(client, API_KEY), [SEED_A])
 
-    assert candidates[0].explanation == [] #TODO explanations not in yet
+    assert dropped == []
+    assert candidates[0].explanation == []
+
+
+# Fallback B — dropped seeds (req 2.07)
+# ---------------------------------------------------------------------------
+
+@respx.mock
+async def test_fallback_b_seed_dropped_when_both_routes_empty():
+    """
+    A seed whose track.getSimilar AND artist.getSimilar both return nothing
+    must appear in dropped_seeds and contribute zero candidates.
+    """
+    seed = Track(artist="Zxqvbw", title="Ploknmf")
+    seed_key = "Zxqvbw/Ploknmf"
+
+    # Primary track.getSimilar empty -> triggers artist fallback
+    _route("track.getSimilar", "Zxqvbw", "Ploknmf", _similar_response([]))
+    # Fallback A: artist.getSimilar also empty -> Fallback B fires
+    _artist_route("artist.getSimilar", "Zxqvbw",
+                  _artist_similar_response([]))
+
+    async with httpx.AsyncClient() as client:
+        candidates, dropped = await aggregate(LastfmClient(client, API_KEY), [seed])
+
+    assert dropped == [seed_key] #confirm seed number dropped
+    assert candidates == [] #confirm 0 candidates with zero seeds.
+
+
+@respx.mock
+async def test_fallback_b_mixed_seeds_only_bad_one_dropped():
+# tst one good seed and one nonsense seed, only the nonsense seed is dropped; the good seed still produces.
+    good_seed = Track(artist="Radiohead", title="Pyramid Song")
+    bad_seed  = Track(artist="Zxqvbw",   title="Ploknmf")
+
+    # Good seed: primary route succeeds
+    _route("track.getSimilar", "Radiohead", "Pyramid Song", _similar_response([
+        _similar_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
+    ]))
+    _route("track.getTopTags", "Radiohead", "Pyramid Song",
+           _tags_response("Radiohead", "Pyramid Song", [("alternative", 100)]))
+    _route("track.getTopTags", "Portishead", "Glory Box",
+           _tags_response("Portishead", "Glory Box", [("alternative", 60)]))
+
+    # Bad seed: both track and artist routes return nothing
+    _route("track.getSimilar", "Zxqvbw", "Ploknmf", _similar_response([])) #dummy giberish
+    _artist_route("artist.getSimilar", "Zxqvbw", _artist_similar_response([]))
+
+    async with httpx.AsyncClient() as client:
+        candidates, dropped = await aggregate(
+            LastfmClient(client, API_KEY), [good_seed, bad_seed]
+        )
+
+    assert dropped == ["Zxqvbw/Ploknmf"] #confirm dropped seed
+    assert len(candidates) == 1 #confirm only one track (defined above) remains
+    assert candidates[0].title == "Glory Box" #confirm title

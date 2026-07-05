@@ -1,6 +1,4 @@
 """Req 1.07 CLI Wiring possible"""
-from __future__ import annotations
-
 import asyncio
 import os
 from pathlib import Path
@@ -41,9 +39,12 @@ async def main() -> None:
 
     async with httpx.AsyncClient(timeout=15.0) as client:
         lf = LastfmClient(client, api_key)
-        candidates = await aggregate(lf, SEEDS)
+        candidates, dropped = await aggregate(lf, SEEDS)
 
-    result = rank(candidates, PARAMS)
+    if dropped:
+        print(f"Dropped seeds (no results after fallback): {', '.join(dropped)}\n")
+
+    result = rank(candidates, dropped, PARAMS)
 
     print(f"Top {len(result.candidates)} recommendations:\n")
     for i, c in enumerate(result.candidates, 1):

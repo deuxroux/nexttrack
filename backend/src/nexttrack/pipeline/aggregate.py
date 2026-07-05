@@ -6,17 +6,24 @@ def _norm_key(artist: str, title: str) -> tuple[str, str]:
     return artist.lower().strip(), title.lower().strip()
 
 
-async def aggregate(lf: LastfmClient, seeds: list[Track]) -> list[Candidate]:
-    # Phase 1: fetch similar tracks + seed tag profile; record any fallback notes per seed
+async def aggregate(lf: LastfmClient, seeds: list[Track]) -> tuple[list[Candidate], list[str]]:
+    # step 1: fetch similar tracks + seed tag profile; record any fallback notes per seed
     seed_tracks: dict[str, list[dict]] = {}
     sim_fallback: dict[str, str] = {}   # seed_key -> fallback note (if similar-tracks fell back)
     tag_fallback: dict[str, str] = {}   # seed_key -> fallback note (if top-tags fell back)
     seed_tag_profile: set[str] = set()
+    dropped_seeds: list[str] = []
 
     for seed in seeds:
         seed_key = f"{seed.artist}/{seed.title}"
 
         sim_result = await lf.get_similar_tracks(seed.artist, seed.title)
+
+        # Req 2.07 (Fallback B): drop seed if both primary and artist fallback give nothing
+        if sim_result.fallback_used and not sim_result.tracks:
+            dropped_seeds.append(seed_key)
+            continue
+
         seed_tracks[seed_key] = sim_result.tracks
         if sim_result.fallback_used:
             sim_fallback[seed_key] = sim_result.fallback_note
@@ -27,7 +34,7 @@ async def aggregate(lf: LastfmClient, seeds: list[Track]) -> list[Candidate]:
         for tag in tags_result.tags:
             seed_tag_profile.add(tag["name"])
 
-    # Phase 2: dedup by normalised (artist, title), summing match scores
+    # Phase 2: dedup by normalised (artist, title) exp. summing match scores
     seed_norm_keys: set[tuple[str, str]] = {
         _norm_key(seed.artist, seed.title) for seed in seeds
     }
@@ -84,4 +91,4 @@ async def aggregate(lf: LastfmClient, seeds: list[Track]) -> list[Candidate]:
             )
         )
 
-    return candidates
+    return candidates, dropped_seeds

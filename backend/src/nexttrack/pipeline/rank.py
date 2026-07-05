@@ -10,6 +10,7 @@ _W_TOTAL: float = W_SIM + W_TAG  # normalisation denominator for relevance
 
 def rank(
     candidates: list[Candidate],
+    dropped_seeds: list[str],
     params: RecommendationParams,
 ) -> RecommendationResult:
     # Genre lock filter (req 3.17)
@@ -22,10 +23,10 @@ def rank(
     else:
         pool = list(candidates)
 
-    # Score and sort -- convex novelty/relevance blend (req 2.04)
+    # Score and sort convex novelty/relevance blend (req 2.04)
     # final = (1-alpha)*relevance + alpha*novelty_bonus
-    # where relevance = (W_SIM*norm_sim + W_TAG*tag_overlap) / W_TOTAL  in [0,1]
-    # and   norm_sim  = summed_similarity / max_sim  (max-normalised across pool)
+    # --> OG relevance = (W_SIM*norm_sim + W_TAG*tag_overlap) / W_TOTAL
+    #  with normalization norm_sim  = summed_similarity / max_sim  (max-normalised across pool)
     alpha = params.novelty / 100.0
     max_sim = max((c.summed_similarity for c in pool), default=1.0) or 1.0
     scored: list[Candidate] = []
@@ -50,6 +51,6 @@ def rank(
     #return final results list
     return RecommendationResult(
         candidates=scored[: params.length],
-        dropped_seeds=[],
+        dropped_seeds=dropped_seeds,
         params=params,
     )

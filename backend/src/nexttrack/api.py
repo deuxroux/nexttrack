@@ -31,5 +31,5 @@ async def recommend(
 ) -> RecommendationResult:
     async with httpx.AsyncClient() as client:
         lf = LastfmClient(client, settings.lastfm_api_key)
-        candidates = await aggregate(lf, request.seeds)
-    return rank(candidates, request.params)
+        candidates, dropped = await aggregate(lf, request.seeds)
+    return rank(candidates, dropped, request.params)
