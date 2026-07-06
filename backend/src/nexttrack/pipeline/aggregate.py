@@ -9,8 +9,8 @@ def _norm_key(artist: str, title: str) -> tuple[str, str]:
 async def aggregate(lf: LastfmClient, seeds: list[Track]) -> tuple[list[Candidate], list[str]]:
     # step 1: fetch similar tracks + seed tag profile; record any fallback notes per seed
     seed_tracks: dict[str, list[dict]] = {}
-    sim_fallback: dict[str, str] = {}   # seed_key -> fallback note (if similar-tracks fell back)
-    tag_fallback: dict[str, str] = {}   # seed_key -> fallback note (if top-tags fell back)
+    sim_fallback: dict[str, str] = {}   # fallback note (if similar-tracks fell back)
+    tag_fallback: dict[str, str] = {}   # fallback note (if top-tags fell back)
     seed_tag_profile: set[str] = set()
     dropped_seeds: list[str] = []
 
@@ -51,15 +51,17 @@ async def aggregate(lf: LastfmClient, seeds: list[Track]) -> tuple[list[Candidat
                     "title": t["name"],
                     "summed_similarity": 0.0,
                     "playcount": t["playcount"],
-                    "contributing_seeds": [],
+                    "seed_matches": {},   # seed_key -> accumulated match score
                 }
             pool[key]["summed_similarity"] += float(t["match"])
-            pool[key]["contributing_seeds"].append(seed_key)
+            pool[key]["seed_matches"][seed_key] = (
+                pool[key]["seed_matches"].get(seed_key, 0.0) + float(t["match"])
+            )
 
     # Phase 3: compute novelty_bonus denominator
     max_playcount = max((e["playcount"] for e in pool.values()), default=1)
 
-    # Phase 4: fetch candidate top tags; compute matched_tags, tag_overlap, novelty_bonus
+    # Phase 4: fetch candidate top tags; compute matched_tags, tag_overlap, novelty_bonus; explanations if necessary
     candidates: list[Candidate] = []
     for entry in pool.values():
         tags_result = await lf.get_top_tags(entry["artist"], entry["title"])
@@ -68,10 +70,18 @@ async def aggregate(lf: LastfmClient, seeds: list[Track]) -> tuple[list[Candidat
         tag_overlap = len(matched) / len(seed_tag_profile) if seed_tag_profile else 0.0
         novelty_bonus = 1.0 - entry["playcount"] / max_playcount
 
-        # Req 2.08: collect fallback notes from any contributing seed (deduplicated)
+        # Rebuild contributing_seeds from seed_matches for the Candidate field
+        seed_matches: dict[str, float] = entry["seed_matches"]
+        contributing_seeds = list(seed_matches.keys())
+        primary_seed = max(seed_matches, key=seed_matches.__getitem__)
+
+        # Req 2.08: structured explanation before any fallback notes
+        explanation: list[str] = [f"top seed: {primary_seed}"]
+        if matched:
+            explanation.append(f"matched tags: {', '.join(matched)}")
+
         seen_notes: set[str] = set()
-        explanation: list[str] = []
-        for seed_key in entry["contributing_seeds"]:
+        for seed_key in contributing_seeds:
             for note in (sim_fallback.get(seed_key), tag_fallback.get(seed_key)):
                 if note is not None and note not in seen_notes:
                     explanation.append(note)
@@ -85,7 +95,7 @@ async def aggregate(lf: LastfmClient, seeds: list[Track]) -> tuple[list[Candidat
                 tag_overlap=tag_overlap,
                 novelty_bonus=novelty_bonus,
                 final_score=0.0,
-                contributing_seeds=entry["contributing_seeds"],
+                contributing_seeds=contributing_seeds,
                 matched_tags=matched,
                 explanation=explanation,
             )

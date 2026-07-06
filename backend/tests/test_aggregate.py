@@ -146,6 +146,9 @@ async def test_two_seed_overlap():
     assert gb.matched_tags == ["alternative"]
     assert gb.tag_overlap == pytest.approx(1 / 3)
     assert gb.novelty_bonus == pytest.approx(0.375)
+    # Radiohead/Pyramid Song contributed the higher match (0.9 vs 0.6)
+    assert gb.explanation[0] == "top seed: Radiohead/Pyramid Song"
+    assert gb.explanation[1] == "matched tags: alternative"
 
     # --- Teardrop: single seed, no tag match ---
     td = by_title["Teardrop"]
@@ -154,6 +157,7 @@ async def test_two_seed_overlap():
     assert td.matched_tags == []
     assert td.tag_overlap == pytest.approx(0.0)
     assert td.novelty_bonus == pytest.approx(0.0)  # confirm max playcount
+    assert td.explanation == ["top seed: Radiohead/Pyramid Song"]  # no matched tags line
 
     # --- Pink Moon: single seed, one tag match ---
     pm = by_title["Pink Moon"]
@@ -162,6 +166,7 @@ async def test_two_seed_overlap():
     assert pm.matched_tags == ["folk"]
     assert pm.tag_overlap == pytest.approx(1 / 3)
     assert pm.novelty_bonus == pytest.approx(0.75)             # 1 - 2M/8M
+    assert pm.explanation == ["top seed: Dr. Dog/Shadow People", "matched tags: folk"]
 
 
 @respx.mock
@@ -225,12 +230,13 @@ async def test_fallback_seed_explanation_populated():
     assert furr.artist == "Blitzen Trapper"
     assert furr.title == "Furr"
     assert furr.matched_tags == ["indie rock"]         # intersects seed tag profile
-    assert len(furr.explanation) > 0
+    assert furr.explanation[0] == "top seed: Dr. Dog/Shadow People"
+    assert furr.explanation[1] == "matched tags: indie rock"
     assert any("artist.getSimilar" in note for note in furr.explanation)
 
 
 @respx.mock
-async def test_primary_seed_has_empty_explanation():
+async def test_primary_seed_has_correct_explanation():
     #Candidates from a seed that used only primary routes have explanation=[].
     _route("track.getSimilar", "Radiohead", "Pyramid Song", _similar_response([
         _similar_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
@@ -244,7 +250,10 @@ async def test_primary_seed_has_empty_explanation():
         candidates, dropped = await aggregate(LastfmClient(client, API_KEY), [SEED_A])
 
     assert dropped == []
-    assert candidates[0].explanation == []
+    # Primary route: no fallback notes, but structured lines are always present
+    assert candidates[0].explanation[0] == "top seed: Radiohead/Pyramid Song"
+    assert candidates[0].explanation[1] == "matched tags: alternative"
+    assert len(candidates[0].explanation) == 2  # no fallback notes appended
 
 
 # Fallback B — dropped seeds (req 2.07)

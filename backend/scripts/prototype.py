@@ -51,14 +51,13 @@ async def main() -> None:
         tags = ", ".join(c.matched_tags) or "-"
         print(
             f"{i:2}. {c.artist} — {c.title}\n"
-            f"    score={c.final_score:.3f}  "
+            f"score={c.final_score:.3f}  "
             f"sim={c.summed_similarity:.2f}  "
             f"tag={c.tag_overlap:.2f}  "
             f"novelty={c.novelty_bonus:.2f}\n"
-            f"    seeds: {', '.join(c.contributing_seeds)}\n"
-            f"    tags:  {tags}"
+            f"seeds: {', '.join(c.contributing_seeds)}\n"
+            f"tags: {tags}"
         )
-
 
 if __name__ == "__main__":
     asyncio.run(main())
