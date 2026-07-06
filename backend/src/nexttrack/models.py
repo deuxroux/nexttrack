@@ -10,9 +10,9 @@ class Track(BaseModel):
 
 class RecommendationParams(BaseModel):
     novelty: int = Field(..., ge=0, le=100)
-    genre_lock: list[str]
-    artist_diversity: int
-    length: int
+    genre_lock: list[str] = Field(default_factory=list)
+    artist_diversity: int = Field(..., ge=1, le=10)
+    length: int = Field(10, ge=5, le=50)
 
 
 class Candidate(BaseModel):

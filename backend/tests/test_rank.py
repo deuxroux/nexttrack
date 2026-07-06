@@ -29,7 +29,7 @@ def _cand(
 
 
 def _params(**kw) -> RecommendationParams:
-    defaults: dict = dict(novelty=50, genre_lock=[], artist_diversity=0, length=50)
+    defaults: dict = dict(novelty=50, genre_lock=[], artist_diversity=5, length=50)
     return RecommendationParams(**(defaults | kw))
 
 
@@ -109,9 +109,10 @@ def test_artist_diversity_keeps_highest_scoring():
     assert titles == ["T0", "T1"]
 
 
-def test_artist_diversity_0_means_no_cap():
+def test_artist_diversity_max_passes_all():
+    # artist_diversity=10 (maximum) with 5 tracks means no practical cap
     rh = [_cand("Radiohead", f"T{i}", sim=0.9, novelty_bonus=0.0) for i in range(5)]
-    result = rank(rh, [], _params(artist_diversity=0, length=10))
+    result = rank(rh, [], _params(artist_diversity=10, length=10))
     assert len(result.candidates) == 5
 
 
@@ -128,8 +129,8 @@ def test_artist_diversity_interleaves_artists():
 
 def test_length_truncates():
     cands = [_cand("A", f"T{i}", sim=float(i), novelty_bonus=0.0) for i in range(10)]
-    result = rank(cands, [], _params(length=3))
-    assert len(result.candidates) == 3
+    result = rank(cands, [], _params(length=5))
+    assert len(result.candidates) == 5
 
 
 def test_length_larger_than_pool_returns_all():

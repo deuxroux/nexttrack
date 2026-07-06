@@ -85,7 +85,7 @@ async def test_recommend_200_and_valid_result() -> None:
                 "params": {
                     "novelty": 50,
                     "genre_lock": [],
-                    "artist_diversity": 0,
+                    "artist_diversity": 5,
                     "length": 10,
                 },
             },

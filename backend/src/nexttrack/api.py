@@ -1,5 +1,7 @@
 import httpx
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from nexttrack.config import Settings, get_settings
@@ -10,6 +12,20 @@ from nexttrack.pipeline.rank import rank
 
 #create fast API for debugging and viewing. will compliment later UI implementation
 app = FastAPI(title="NextTrack", version="0.1.0")
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    _request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    messages = []
+    for err in exc.errors():
+        loc = " -> ".join(str(p) for p in err["loc"] if p != "body")
+        messages.append(f"{loc}: {err['msg']}")
+    return JSONResponse(
+        status_code=422,
+        content={"error": "Invalid request parameters", "details": messages},
+    )
 
 
 class RecommendRequest(BaseModel):

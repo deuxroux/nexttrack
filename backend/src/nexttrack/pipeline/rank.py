@@ -37,16 +37,15 @@ def rank(
         scored.append(c.model_copy(update={"final_score": score}))
     scored.sort(key=lambda c: c.final_score, reverse=True)
 
-    # artist diversity cap (req 3.18)applied after sort
-    if params.artist_diversity > 0:
-        counts: dict[str, int] = {}
-        diverse: list[Candidate] = []
-        for c in scored:
-            key = c.artist.lower().strip()
-            if counts.get(key, 0) < params.artist_diversity:
-                diverse.append(c)
-                counts[key] = counts.get(key, 0) + 1
-        scored = diverse
+    # artist diversity cap (req 3.18) applied after sort
+    counts: dict[str, int] = {}
+    diverse: list[Candidate] = []
+    for c in scored:
+        key = c.artist.lower().strip()
+        if counts.get(key, 0) < params.artist_diversity:
+            diverse.append(c)
+            counts[key] = counts.get(key, 0) + 1
+    scored = diverse
 
     #return final results list
     return RecommendationResult(
