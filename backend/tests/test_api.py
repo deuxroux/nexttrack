@@ -26,10 +26,9 @@ def _tags_response(artist: str, title: str, tags: list[tuple[str, int]]) -> dict
 def _sim_track(name: str, artist: str, match: float, playcount: int) -> dict:
     return {
         "name": name,
-        "artist": {"name": artist, "mbid": "", "url": ""},
+        "artist": {"name": artist, "url": ""},
         "match": match,
         "playcount": playcount,
-        "mbid": "",
         "streamable": {"#text": "0", "fulltrack": "0"},
         "duration": 240,
         "url": "",

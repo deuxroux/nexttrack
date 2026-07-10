@@ -79,7 +79,6 @@ class LastfmClient:
                 "artist": t["artist"]["name"],
                 "match": float(t["match"]),
                 "playcount": int(t["playcount"]),
-                "mbid": t.get("mbid") or None,
             }
             for t in raw
         ]
@@ -104,7 +103,6 @@ class LastfmClient:
                     "artist": sa["name"],
                     "match": sa_match,
                     "playcount": t["playcount"],
-                    "mbid": t["mbid"],
                 })
         return SimilarTracksResult(
             tracks=tracks,
@@ -120,7 +118,7 @@ class LastfmClient:
         )
         raw = data.get("toptracks", {}).get("track", [])
         return [
-            {"name": t["name"], "playcount": int(t["playcount"]), "mbid": t.get("mbid") or None}
+            {"name": t["name"], "playcount": int(t["playcount"])}
             for t in raw
         ]
 

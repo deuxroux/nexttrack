@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field
 class Track(BaseModel):
     artist: str
     title: str
-    mbid: str | None = None
 
 
 class RecommendationParams(BaseModel):

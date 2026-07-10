@@ -32,18 +32,6 @@ async def test_get_similar_tracks_shape():
     assert isinstance(first["playcount"], int)
 
 
-@respx.mock
-async def test_get_similar_tracks_mbid_none_when_empty():
-    fixture = json.loads((FIXTURES / "get_similar__radiohead__pyramid_song.json").read_text())
-    fixture["similartracks"]["track"][0]["mbid"] = ""
-    respx.get(BASE_URL).mock(return_value=httpx.Response(200, json=fixture))
-
-    async with httpx.AsyncClient() as client:
-        result = await LastfmClient(client, API_KEY).get_similar_tracks("Radiohead", "Pyramid Song")
-
-    assert result.tracks[0]["mbid"] is None
-
-
 # track.getSimilar fallback to artist.getSimilar + artist.getTopTracks
 # ---------------------------------------------------------------------------
 
@@ -55,12 +43,12 @@ async def test_get_similar_tracks_fallback_on_empty():
     )
     respx.get(BASE_URL, params={"method": "artist.getSimilar"}).mock(
         return_value=httpx.Response(200, json={
-            "similarartists": {"artist": [{"name": "Portishead", "match": "0.85", "mbid": ""}]}
+            "similarartists": {"artist": [{"name": "Portishead", "match": "0.85"}]}
         })
     )
     respx.get(BASE_URL, params={"method": "artist.getTopTracks"}).mock(
         return_value=httpx.Response(200, json={
-            "toptracks": {"track": [{"name": "Glory Box", "playcount": "5000000", "mbid": ""}]}
+            "toptracks": {"track": [{"name": "Glory Box", "playcount": "5000000"}]}
         })
     )
 
@@ -94,7 +82,6 @@ async def test_get_similar_tracks_fallback_empty_artists_returns_empty():
     assert result.tracks == []
 
 
-# ---------------------------------------------------------------------------
 # track.getTopTags primary route
 # ---------------------------------------------------------------------------
 

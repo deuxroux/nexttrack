@@ -125,6 +125,19 @@ def test_artist_diversity_interleaves_artists():
     assert "Portishead" in artists
 
 
+def test_artist_diversity_cap_and_sort_order_multiartist():
+    # 3 Radiohead (sims 0.9, 0.7, 0.5) + 2 Portishead (sims 0.8, 0.6); cap=1 per artist
+    # Expected after cap: RH0 (highest RH) and PH0 (highest PH), in score order
+    rh = [_cand("Radiohead", f"RH{i}", sim=0.9 - i * 0.2, novelty_bonus=0.0) for i in range(3)]
+    ph = [_cand("Portishead", f"PH{i}", sim=0.8 - i * 0.2, novelty_bonus=0.0) for i in range(2)]
+    result = rank(rh + ph, [], _params(novelty=0, artist_diversity=1, length=10))
+    assert len(result.candidates) == 2
+    assert result.candidates[0].title == "RH0"   # highest overall score
+    assert result.candidates[1].title == "PH0"   # highest Portishead score
+    assert result.candidates[0].artist == "Radiohead"
+    assert result.candidates[1].artist == "Portishead"
+
+
 # Truncation-- exact number of tracks to be returned tests
 
 def test_length_truncates():

@@ -14,14 +14,13 @@ API_KEY = "test_key"
 # ---------------------------------------------------------------------------
 
 def _similar_track(
-    name: str, artist: str, match: float, playcount: int, mbid: str = ""
+    name: str, artist: str, match: float, playcount: int
 ) -> dict:
     return {
         "name": name,
-        "artist": {"name": artist, "mbid": "", "url": ""},
+        "artist": {"name": artist, "url": ""},
         "match": match,
         "playcount": playcount,
-        "mbid": mbid,
         "streamable": {"#text": "0", "fulltrack": "0"},
         "duration": 240,
         "url": "",
@@ -70,7 +69,7 @@ def _artist_tags_response(artist: str, tags: list[tuple[str, int]]) -> dict:
 def _artist_similar_response(artists: list[tuple[str, float]]) -> dict:
     return {
         "similarartists": {
-            "artist": [{"name": n, "match": str(m), "mbid": "", "url": ""} for n, m in artists]
+            "artist": [{"name": n, "match": str(m), "url": ""} for n, m in artists]
         }
     }
 
@@ -78,7 +77,7 @@ def _artist_similar_response(artists: list[tuple[str, float]]) -> dict:
 def _artist_top_tracks_response(tracks: list[tuple[str, int]]) -> dict:
     return {
         "toptracks": {
-            "track": [{"name": n, "playcount": str(pc), "mbid": "", "url": ""} for n, pc in tracks]
+            "track": [{"name": n, "playcount": str(pc), "url": ""} for n, pc in tracks]
         }
     }
 

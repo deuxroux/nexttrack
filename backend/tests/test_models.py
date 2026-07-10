@@ -5,10 +5,9 @@ from nexttrack.models import Candidate, RecommendationParams, RecommendationResu
 
 
 def test_track_shape():
-    t = Track(artist="Radiohead", title="Pyramid Song", mbid=None)
+    t = Track(artist="Radiohead", title="Pyramid Song")
     assert t.artist == "Radiohead"
     assert t.title == "Pyramid Song"
-    assert t.mbid is None
 
 
 #confirm data type matches model with simple artist check. manually verified response.

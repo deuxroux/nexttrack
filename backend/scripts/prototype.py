@@ -1,4 +1,3 @@
-"""Req 1.07 CLI Wiring possible"""
 import asyncio
 import os
 from pathlib import Path

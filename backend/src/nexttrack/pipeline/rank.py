@@ -25,7 +25,7 @@ def rank(
 
     # Score and sort convex novelty/relevance blend (req 2.04)
     # final = (1-alpha)*relevance + alpha*novelty_bonus
-    # --> OG relevance = (W_SIM*norm_sim + W_TAG*tag_overlap) / W_TOTAL
+    # --> ORIGINAL relevance = (W_SIM*norm_sim + W_TAG*tag_overlap) / W_TOTAL
     #  with normalization norm_sim  = summed_similarity / max_sim  (max-normalised across pool)
     alpha = params.novelty / 100.0
     max_sim = max((c.summed_similarity for c in pool), default=1.0) or 1.0
