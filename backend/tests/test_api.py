@@ -3,12 +3,24 @@ import json
 from unittest.mock import AsyncMock, patch
 
 import httpx
+import pytest
 import respx
 from httpx import ASGITransport
 
 from nexttrack.api import app
+from nexttrack.config import Settings, get_settings
 from nexttrack.lastfm.client import BASE_URL
 from nexttrack.models import RecommendationResult
+
+
+@pytest.fixture(autouse=True)
+def _override_settings():
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        lastfm_api_key="test_key",
+        user_agent_contact="test@example.com",
+    )
+    yield
+    app.dependency_overrides.pop(get_settings, None)
 
 # Shared  helpers  based on test_aggregate.py.
 # ----------------------------------------------------------------------
