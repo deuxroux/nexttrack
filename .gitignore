@@ -8,3 +8,17 @@ __pycache__/
 CLAUDE.md
 .claude/
 backend/scripts/capture_fixtures.py
+
+dist/
+build/
+*.egg-info/
+
+.coverage
+htmlcov/
+
+.vscode/
+.idea/
+
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local

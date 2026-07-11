@@ -12,6 +12,8 @@ dependencies = [
     "httpx>=0.28.1",
     "pydantic>=2.13.4",
     "pydantic-settings>=2.11.0",
+    "redis>=5.0",
+    "sse-starlette>=2.0",
     "uvicorn[standard]>=0.39.0",
 ]
 
@@ -28,6 +30,7 @@ testpaths = ["tests"]
 
 [dependency-groups]
 dev = [
+    "fakeredis>=2.20",
     "httpx>=0.28.1",
     "pytest>=8.4.2",
     "pytest-asyncio>=1.2.0",

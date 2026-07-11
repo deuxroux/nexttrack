@@ -1,0 +1,13 @@
+{
+  "seeds": [
+    {"artist": "Radiohead",      "title": "Pyramid Song"},
+    {"artist": "Portishead",     "title": "Glory Box"},
+    {"artist": "Massive Attack", "title": "Teardrop"}
+  ],
+  "params": {
+    "novelty":          60,
+    "genre_lock":       [],
+    "artist_diversity": 3,
+    "length":           10
+  }
+}

@@ -26,6 +26,13 @@ class Candidate(BaseModel):
     explanation: list[str] = []  # non-empty if any contributing seed used a fallback route
 
 
+class StageEvent(BaseModel):
+    stage: str
+    seeds_done: int | None = None
+    seeds_total: int | None = None
+    candidates: int | None = None
+
+
 class RecommendationResult(BaseModel):
     candidates: list[Candidate]
     dropped_seeds: list[str]

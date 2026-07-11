@@ -4,8 +4,8 @@ import pytest
 import respx
 
 from nexttrack.lastfm.client import BASE_URL, LastfmClient
-from nexttrack.models import Track
-from nexttrack.pipeline.aggregate import aggregate
+from nexttrack.models import Candidate, StageEvent, Track
+from nexttrack.pipeline.aggregate import aggregate, aggregate_streaming
 
 API_KEY = "test_key"
 
@@ -307,3 +307,65 @@ async def test_fallback_b_mixed_seeds_only_bad_one_dropped():
     assert dropped == ["Zxqvbw/Ploknmf"] #confirm dropped seed
     assert len(candidates) == 1 #confirm only one track (defined above) remains
     assert candidates[0].title == "Glory Box" #confirm title
+
+
+# Streaming variant
+# ---------------------------------------------------------------------------
+
+@respx.mock
+async def test_aggregate_streaming_event_ordering():
+    # Two-seed setup matching test_two_seed_overlap
+    _route("track.getSimilar", "Radiohead", "Pyramid Song", _similar_response([
+        _similar_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
+        _similar_track("Teardrop", "Massive Attack", match=0.7, playcount=8_000_000),
+    ]))
+    _route("track.getSimilar", "Dr. Dog", "Shadow People", _similar_response([
+        _similar_track("Glory Box", "Portishead", match=0.6, playcount=5_000_000),
+        _similar_track("Pink Moon", "Nick Drake", match=0.5, playcount=2_000_000),
+    ]))
+    _route("track.getTopTags", "Radiohead", "Pyramid Song",
+           _tags_response("Radiohead", "Pyramid Song", [("alternative", 100), ("art rock", 50)]))
+    _route("track.getTopTags", "Dr. Dog", "Shadow People",
+           _tags_response("Dr. Dog", "Shadow People", [("alternative", 80), ("folk", 40)]))
+    _route("track.getTopTags", "Portishead", "Glory Box",
+           _tags_response("Portishead", "Glory Box", [("trip-hop", 100), ("alternative", 60)]))
+    _route("track.getTopTags", "Massive Attack", "Teardrop",
+           _tags_response("Massive Attack", "Teardrop", [("trip-hop", 90), ("electronic", 70)]))
+    _route("track.getTopTags", "Nick Drake", "Pink Moon",
+           _tags_response("Nick Drake", "Pink Moon", [("folk", 80), ("acoustic", 50)]))
+
+    events: list[StageEvent] = []
+    final: tuple[list[Candidate], list[str]] | None = None
+
+    async with httpx.AsyncClient() as client:
+        async for item in aggregate_streaming(LastfmClient(client, API_KEY), [SEED_A, SEED_B]):
+            if isinstance(item, StageEvent):
+                events.append(item)
+            else:
+                final = item
+
+    # Two similarity events (one per seed) then one tags event — in that order
+    assert len(events) == 3
+    sim_events = [e for e in events if e.stage == "similarity"]
+    tags_events = [e for e in events if e.stage == "tags"]
+    assert len(sim_events) == 2
+    assert len(tags_events) == 1
+
+    # similarity events count up correctly
+    assert sim_events[0].seeds_done == 1
+    assert sim_events[0].seeds_total == 2
+    assert sim_events[1].seeds_done == 2
+    assert sim_events[1].seeds_total == 2
+
+    # tags event reflects deduplicated pool size (3 unique candidates)
+    assert tags_events[0].candidates == 3
+
+    # tags event arrives after both similarity events
+    tags_index = events.index(tags_events[0])
+    assert all(events.index(e) < tags_index for e in sim_events)
+
+    # final tuple is a well-formed result
+    assert final is not None
+    result_candidates, dropped = final
+    assert dropped == []
+    assert len(result_candidates) == 3
