@@ -4,8 +4,8 @@ import pytest
 import respx
 
 from nexttrack.lastfm.client import BASE_URL, LastfmClient
-from nexttrack.models import Candidate, StageEvent, Track
-from nexttrack.pipeline.aggregate import aggregate, aggregate_streaming
+from nexttrack.models import Candidate, SeedProfile, StageEvent, TagCount, Track
+from nexttrack.pipeline.aggregate import aggregate, aggregate_streaming, build_seed_profile
 
 API_KEY = "test_key"
 
@@ -369,3 +369,89 @@ async def test_aggregate_streaming_event_ordering():
     result_candidates, dropped = final
     assert dropped == []
     assert len(result_candidates) == 3
+
+
+# build_seed_profile
+# ---------------------------------------------------------------------------
+
+@respx.mock
+async def test_build_seed_profile_shared_tag_has_seed_count_two() -> None:
+    # Two seeds sharing "alternative"; each also contributes one unique tag.
+    # Shared tag must sort first (seed_count=2); unique tags follow alphabetically.
+    _route("track.getSimilar", "Radiohead", "Pyramid Song", _similar_response([
+        _similar_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
+    ]))
+    _route("track.getSimilar", "Dr. Dog", "Shadow People", _similar_response([
+        _similar_track("Pink Moon", "Nick Drake", match=0.5, playcount=2_000_000),
+    ]))
+    _route("track.getTopTags", "Radiohead", "Pyramid Song",
+           _tags_response("Radiohead", "Pyramid Song", [("alternative", 100), ("art rock", 50)]))
+    _route("track.getTopTags", "Dr. Dog", "Shadow People",
+           _tags_response("Dr. Dog", "Shadow People", [("alternative", 80), ("folk", 40)]))
+
+    async with httpx.AsyncClient() as client:
+        profile = await build_seed_profile(LastfmClient(client, API_KEY), [SEED_A, SEED_B])
+
+    assert isinstance(profile, SeedProfile)
+    assert profile.total_seeds == 2
+    assert profile.dropped_seeds == []
+
+    tag_map = {t.name: t.seed_count for t in profile.tags}
+    assert tag_map["alternative"] == 2
+    assert tag_map["art rock"] == 1
+    assert tag_map["folk"] == 1
+
+    # sort order: seed_count desc, then alpha on name
+    assert profile.tags[0] == TagCount(name="alternative", seed_count=2)
+    assert profile.tags[1] == TagCount(name="art rock", seed_count=1)
+    assert profile.tags[2] == TagCount(name="folk", seed_count=1)
+
+
+@respx.mock
+async def test_build_seed_profile_fallback_b_seed_dropped() -> None:
+    # Bad seed has both track.getSimilar and artist.getSimilar return empty (Fallback B).
+    # It must appear in dropped_seeds, contribute no tags, and total_seeds
+    # must reflect the original input count rather than the post-drop count.
+    good_seed = Track(artist="Radiohead", title="Pyramid Song")
+    bad_seed  = Track(artist="Zxqvbw",   title="Ploknmf")
+
+    _route("track.getSimilar", "Radiohead", "Pyramid Song", _similar_response([
+        _similar_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
+    ]))
+    _route("track.getTopTags", "Radiohead", "Pyramid Song",
+           _tags_response("Radiohead", "Pyramid Song", [("alternative", 100)]))
+
+    _route("track.getSimilar", "Zxqvbw", "Ploknmf", _similar_response([]))
+    _artist_route("artist.getSimilar", "Zxqvbw", _artist_similar_response([]))
+
+    async with httpx.AsyncClient() as client:
+        profile = await build_seed_profile(
+            LastfmClient(client, API_KEY), [good_seed, bad_seed]
+        )
+
+    assert profile.dropped_seeds == ["Zxqvbw/Ploknmf"]
+    assert profile.total_seeds == 2        # original input, not post-drop count
+    assert len(profile.tags) == 1
+    assert profile.tags[0] == TagCount(name="alternative", seed_count=1)
+
+
+@respx.mock
+async def test_build_seed_profile_all_succeed_dropped_seeds_empty() -> None:
+    # When every seed resolves successfully, dropped_seeds is empty and
+    # total_seeds matches the input length exactly.
+    _route("track.getSimilar", "Radiohead", "Pyramid Song", _similar_response([
+        _similar_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
+    ]))
+    _route("track.getSimilar", "Dr. Dog", "Shadow People", _similar_response([
+        _similar_track("Pink Moon", "Nick Drake", match=0.5, playcount=2_000_000),
+    ]))
+    _route("track.getTopTags", "Radiohead", "Pyramid Song",
+           _tags_response("Radiohead", "Pyramid Song", [("alternative", 100)]))
+    _route("track.getTopTags", "Dr. Dog", "Shadow People",
+           _tags_response("Dr. Dog", "Shadow People", [("indie rock", 80)]))
+
+    async with httpx.AsyncClient() as client:
+        profile = await build_seed_profile(LastfmClient(client, API_KEY), [SEED_A, SEED_B])
+
+    assert profile.dropped_seeds == []
+    assert profile.total_seeds == 2

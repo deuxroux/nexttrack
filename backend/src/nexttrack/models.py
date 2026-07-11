@@ -33,6 +33,17 @@ class StageEvent(BaseModel):
     candidates: int | None = None
 
 
+class TagCount(BaseModel):
+    name: str
+    seed_count: int
+
+
+class SeedProfile(BaseModel):
+    tags: list[TagCount]         # sorted desc by seed_count, ties broken alpha by name
+    dropped_seeds: list[str]
+    total_seeds: int             # len(original input) — includes dropped seeds
+
+
 class RecommendationResult(BaseModel):
     candidates: list[Candidate]
     dropped_seeds: list[str]

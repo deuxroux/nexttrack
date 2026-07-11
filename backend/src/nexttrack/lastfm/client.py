@@ -1,8 +1,9 @@
 import asyncio
 from collections import deque
 from dataclasses import dataclass
-import time
+from nexttrack.cache import LastfmCache
 
+import time
 import httpx
 
 BASE_URL = "https://ws.audioscrobbler.com/2.0/"
@@ -30,10 +31,15 @@ class TopTagsResult:
 
 class LastfmClient:
     #reminder: api key is not exposed. requires an individual's key in a separate env file.
-    def __init__(self, client: httpx.AsyncClient, api_key: str) -> None:
+    def __init__(
+        self,
+        client: httpx.AsyncClient,
+        api_key: str,
+        cache: LastfmCache | None = None,
+    ) -> None:
         self._client = client
         self._api_key = api_key
-        # Sliding window: tracks timestamps of the last _RATE_LIMIT requests
+        self._cache = cache
         self._request_times: deque[float] = deque(maxlen=_RATE_LIMIT)
 
     async def _fetch(self, **params) -> dict:
@@ -54,19 +60,37 @@ class LastfmClient:
     # public fns aggregate track-level meta data routes with fallbacks
 
     async def get_similar_tracks(self, artist: str, title: str) -> SimilarTracksResult:
-        #get track.getSimilar; falls back to artist.getSimilar + artist.getTopTracks if empty.
+        if self._cache is not None:
+            cached = await self._cache.get(LastfmCache.key_similar(artist, title))
+            if cached is not None:
+                return SimilarTracksResult(tracks=cached["tracks"])
+
         data = await self._fetch(method="track.getSimilar", artist=artist, track=title, limit=50)
         raw = data.get("similartracks", {}).get("track", [])
         if raw:
-            return SimilarTracksResult(tracks=self._parse_similar_tracks(raw))
+            parsed = self._parse_similar_tracks(raw)
+            if self._cache is not None:
+                await self._cache.set(
+                    LastfmCache.key_similar(artist, title), {"tracks": parsed}
+                )
+            return SimilarTracksResult(tracks=parsed)
         return await self._fallback_artist_similar(artist, title)
 
     async def get_top_tags(self, artist: str, title: str) -> TopTagsResult:
-        # get track.getTopTags; falls back to artist.getTopTags if empty.
+        if self._cache is not None:
+            cached = await self._cache.get(LastfmCache.key_toptags(artist, title))
+            if cached is not None:
+                return TopTagsResult(tags=cached["tags"])
+
         data = await self._fetch(method="track.getTopTags", artist=artist, track=title)
         raw = data.get("toptags", {}).get("tag", [])
         if raw:
-            return TopTagsResult(tags=self._parse_tags(raw))
+            parsed = self._parse_tags(raw)
+            if self._cache is not None:
+                await self._cache.set(
+                    LastfmCache.key_toptags(artist, title), {"tags": parsed}
+                )
+            return TopTagsResult(tags=parsed)
         return await self._fallback_artist_top_tags(artist, title)
 
     # private data parsers. all private funtions with _

@@ -1,7 +1,7 @@
 from collections.abc import AsyncIterator
 
 from nexttrack.lastfm.client import LastfmClient
-from nexttrack.models import Candidate, StageEvent, Track
+from nexttrack.models import Candidate, SeedProfile, StageEvent, TagCount, Track
 
 
 def _norm_key(artist: str, title: str) -> tuple[str, str]:
@@ -111,6 +111,37 @@ async def aggregate_streaming(
         )
 
     yield candidates, dropped_seeds
+
+
+async def build_seed_profile(lf: LastfmClient, seeds: list[Track]) -> SeedProfile:
+    tag_counts: dict[str, int] = {}  # tag name -> number of seeds that carry it
+    dropped_seeds: list[str] = []
+
+    for seed in seeds:
+        seed_key = f"{seed.artist}/{seed.title}"
+
+        sim_result = await lf.get_similar_tracks(seed.artist, seed.title)
+
+        # Fallback B: both track- and artist-level similarity returned empty — drop seed
+        if sim_result.fallback_used and not sim_result.tracks:
+            dropped_seeds.append(seed_key)
+            continue
+
+        tags_result = await lf.get_top_tags(seed.artist, seed.title)
+        for tag in tags_result.tags:
+            name = tag["name"]
+            tag_counts[name] = tag_counts.get(name, 0) + 1
+
+    sorted_tags = sorted(
+        [TagCount(name=name, seed_count=count) for name, count in tag_counts.items()],
+        key=lambda t: (-t.seed_count, t.name),
+    )
+
+    return SeedProfile(
+        tags=sorted_tags,
+        dropped_seeds=dropped_seeds,
+        total_seeds=len(seeds),
+    )
 
 
 async def aggregate(lf: LastfmClient, seeds: list[Track]) -> tuple[list[Candidate], list[str]]:

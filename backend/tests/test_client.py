@@ -5,7 +5,9 @@ from pathlib import Path
 import httpx
 import pytest
 import respx
+import fakeredis.aioredis
 
+from nexttrack.cache import LastfmCache
 from nexttrack.lastfm.client import BASE_URL, LastfmClient
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -162,3 +164,47 @@ async def test_rate_limit_enforces_five_per_second(n_requests: int):
 
     # 6 requests at <=5 req/s must span at least 1 full second
     assert elapsed >= 1.0, f"Expected >=1.0s for {n_requests} requests, got {elapsed:.3f}s"
+
+# Confirm Cache  features
+# ---------------------------------------------------------------------------
+
+#create fake cache
+@pytest.fixture
+async def cache() -> LastfmCache:
+    fake = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    return LastfmCache(fake, ttl=3600)
+
+
+#don't check lastfm if cached
+@respx.mock
+async def test_cache_hit_skips_lastfm_fetch(cache: LastfmCache) -> None:
+    route = respx.get(BASE_URL).mock(
+        return_value=httpx.Response(200, json={
+            "similartracks": {"track": [
+                {"name": "T", "artist": {"name": "A"}, "match": "0.9", "playcount": "100"}
+            ]}
+        })
+    )
+    async with httpx.AsyncClient() as http:
+        client = LastfmClient(http, "test_key", cache=cache)
+        await client.get_similar_tracks("Radiohead", "Pyramid Song")
+        first_count = route.call_count
+        await client.get_similar_tracks("Radiohead", "Pyramid Song")
+        assert route.call_count == first_count, "second call must not hit Last.fm"
+    assert cache.hits >= 1
+
+#if disabled path works
+@respx.mock
+async def test_cache_none_disables_caching_cleanly() -> None:
+    route = respx.get(BASE_URL).mock(
+        return_value=httpx.Response(200, json={
+            "similartracks": {"track": [
+                {"name": "T", "artist": {"name": "A"}, "match": "0.9", "playcount": "100"}
+            ]}
+        })
+    )
+    async with httpx.AsyncClient() as http:
+        client = LastfmClient(http, "test_key")  # no cache
+        await client.get_similar_tracks("Radiohead", "Pyramid Song")
+        await client.get_similar_tracks("Radiohead", "Pyramid Song")
+        assert route.call_count == 2, "both calls must hit Last.fm when cache disabled"

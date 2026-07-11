@@ -10,7 +10,7 @@ from httpx import ASGITransport
 from nexttrack.api import app
 from nexttrack.config import Settings, get_settings
 from nexttrack.lastfm.client import BASE_URL
-from nexttrack.models import RecommendationResult
+from nexttrack.models import RecommendationResult, SeedProfile, TagCount
 
 
 @pytest.fixture(autouse=True)
@@ -56,6 +56,21 @@ def _route(method: str, artist: str, track: str, body: dict) -> None:
         BASE_URL,
         params={"method": method, "artist": artist, "track": track},
     ).mock(return_value=httpx.Response(200, json=body))
+
+
+def _artist_route(method: str, artist: str, body: dict) -> None:
+    respx.get(
+        BASE_URL,
+        params={"method": method, "artist": artist},
+    ).mock(return_value=httpx.Response(200, json=body))
+
+
+def _artist_similar_response(artists: list[tuple[str, float]]) -> dict:
+    return {
+        "similarartists": {
+            "artist": [{"name": n, "match": str(m), "url": ""} for n, m in artists]
+        }
+    }
 
 
 # Tests for api routes
@@ -266,3 +281,133 @@ async def test_recommend_stream_disconnect_cuts_last_fm_calls() -> None:
     # Seed lookups (getSimilar + seed getTopTags) were already in-flight;
     # the two candidate getTopTags calls were never reached.
     assert len(respx.calls) == 2
+
+
+# /seed-profile endpoint
+# ---------------------------------------------------------------------------
+
+@respx.mock
+async def test_seed_profile_happy_path() -> None:
+    # Two seeds sharing "alternative"; unique tags verify sort order.
+    _route("track.getSimilar", "Radiohead", "Pyramid Song", _similar_response([
+        _sim_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
+    ]))
+    _route("track.getSimilar", "Dr. Dog", "Shadow People", _similar_response([
+        _sim_track("Pink Moon", "Nick Drake", match=0.5, playcount=2_000_000),
+    ]))
+    _route("track.getTopTags", "Radiohead", "Pyramid Song",
+           _tags_response("Radiohead", "Pyramid Song", [("alternative", 100), ("art rock", 50)]))
+    _route("track.getTopTags", "Dr. Dog", "Shadow People",
+           _tags_response("Dr. Dog", "Shadow People", [("alternative", 80), ("folk", 40)]))
+
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        r = await ac.post(
+            "/seed-profile",
+            json={"seeds": [
+                {"artist": "Radiohead", "title": "Pyramid Song"},
+                {"artist": "Dr. Dog",   "title": "Shadow People"},
+            ]},
+        )
+
+    assert r.status_code == 200
+    profile = SeedProfile.model_validate(r.json())
+    assert profile.total_seeds == 2
+    assert profile.dropped_seeds == []
+
+    tag_map = {t.name: t.seed_count for t in profile.tags}
+    assert tag_map["alternative"] == 2
+    assert tag_map["art rock"] == 1
+    assert tag_map["folk"] == 1
+
+    # sort: desc seed_count, then alpha on name
+    assert profile.tags[0] == TagCount(name="alternative", seed_count=2)
+    assert profile.tags[1] == TagCount(name="art rock",    seed_count=1)
+    assert profile.tags[2] == TagCount(name="folk",        seed_count=1)
+
+
+@respx.mock
+async def test_seed_profile_fallback_b_seed_dropped() -> None:
+    # Seed whose track.getSimilar and artist.getSimilar both return empty lands
+    # in dropped_seeds; total_seeds still reflects the original input count.
+    _route("track.getSimilar", "Zxqvbw", "Ploknmf", _similar_response([]))
+    _artist_route("artist.getSimilar", "Zxqvbw", _artist_similar_response([]))
+
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        r = await ac.post(
+            "/seed-profile",
+            json={"seeds": [{"artist": "Zxqvbw", "title": "Ploknmf"}]},
+        )
+
+    assert r.status_code == 200
+    profile = SeedProfile.model_validate(r.json())
+    assert profile.dropped_seeds == ["Zxqvbw/Ploknmf"]
+    assert profile.tags == []
+    assert profile.total_seeds == 1
+
+
+async def test_seed_profile_empty_seeds_returns_422() -> None:
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        r = await ac.post("/seed-profile", json={"seeds": []})
+    assert r.status_code == 422
+
+
+async def test_seed_profile_too_many_seeds_returns_422() -> None:
+    seeds = [{"artist": f"Artist{i}", "title": f"Track{i}"} for i in range(51)]
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        r = await ac.post("/seed-profile", json={"seeds": seeds})
+    assert r.status_code == 422
+
+
+@respx.mock
+async def test_seed_profile_statelessness_recommend_unaffected() -> None:
+    """Calling /seed-profile before /recommend shares no state.
+
+    Each endpoint constructs its own httpx client and LastfmClient; neither
+    caches results to shared storage at this stage (caching is added in step G).
+    The assertion is about no shared *state*, not no shared *work* — once step G
+    lands, both endpoints will benefit from the Redis cache independently.
+    """
+    seed_artist, seed_title = "Radiohead", "Pyramid Song"
+
+    # Routes for both /seed-profile and /recommend — each call hits Last.fm
+    # independently; respx serves the same mock response to every call.
+    _route("track.getSimilar", seed_artist, seed_title, _similar_response([
+        _sim_track("Glory Box",  "Portishead",     match=0.9, playcount=5_000_000),
+        _sim_track("Teardrop",   "Massive Attack", match=0.7, playcount=8_000_000),
+    ]))
+    _route("track.getTopTags", seed_artist, seed_title,
+           _tags_response(seed_artist, seed_title, [("alternative", 100)]))
+    _route("track.getTopTags", "Portishead",     "Glory Box",
+           _tags_response("Portishead",     "Glory Box",  [("alternative", 60)]))
+    _route("track.getTopTags", "Massive Attack", "Teardrop",
+           _tags_response("Massive Attack", "Teardrop",   [("trip-hop", 90)]))
+
+    payload_seeds = [{"artist": seed_artist, "title": seed_title}]
+
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        sp = await ac.post("/seed-profile", json={"seeds": payload_seeds})
+        rec = await ac.post(
+            "/recommend",
+            json={
+                "seeds": payload_seeds,
+                "params": {"novelty": 50, "genre_lock": [], "artist_diversity": 5, "length": 10},
+            },
+        )
+
+    assert sp.status_code == 200
+    assert rec.status_code == 200
+    # /recommend returns a valid, correctly ranked result regardless of the
+    # prior /seed-profile call — proves no shared mutable state exists.
+    result = RecommendationResult.model_validate(rec.json())
+    assert len(result.candidates) == 2
+    assert result.candidates[0].title == "Glory Box"

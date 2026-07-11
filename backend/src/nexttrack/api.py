@@ -7,8 +7,8 @@ from sse_starlette.sse import EventSourceResponse
 
 from nexttrack.config import Settings, get_settings
 from nexttrack.lastfm.client import LastfmClient
-from nexttrack.models import Candidate, RecommendationParams, RecommendationResult, StageEvent, Track
-from nexttrack.pipeline.aggregate import aggregate, aggregate_streaming
+from nexttrack.models import Candidate, RecommendationParams, RecommendationResult, SeedProfile, StageEvent, Track
+from nexttrack.pipeline.aggregate import aggregate, aggregate_streaming, build_seed_profile
 from nexttrack.pipeline.rank import rank
 
 #create fast API for debugging and viewing. will compliment later UI implementation
@@ -34,10 +34,24 @@ class RecommendRequest(BaseModel):
     params: RecommendationParams
 
 
+class SeedProfileRequest(BaseModel):
+    seeds: list[Track] = Field(..., min_length=1, max_length=50)
+
+
 #TODO put status checks in for spotify, last.fm, etc. for internal debugging.
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.post("/seed-profile", response_model=SeedProfile)
+async def seed_profile(
+    request: SeedProfileRequest,
+    settings: Settings = Depends(get_settings),
+) -> SeedProfile:
+    async with httpx.AsyncClient() as client:
+        lf = LastfmClient(client, settings.lastfm_api_key)
+        return await build_seed_profile(lf, request.seeds)
 
 
 #/recommend route
