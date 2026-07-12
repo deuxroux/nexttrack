@@ -73,7 +73,6 @@ async def metrics(req: Request) -> dict:
     cache: LastfmCache = req.app.state.cache
     return {
         "cache": {
-            "enabled": True,
             "hits": cache.hits,
             "misses": cache.misses,
             "hit_rate": cache.hit_rate,

@@ -456,7 +456,6 @@ async def test_cache_hit_on_second_recommend() -> None:
     assert r2.status_code == 200
     assert calls_after_second == calls_after_first
     metrics_body = m.json()
-    assert metrics_body["cache"]["enabled"] is True
     assert metrics_body["cache"]["hits"] > 0
 
 
@@ -511,5 +510,41 @@ async def test_cache_hit_on_second_recommend_stream() -> None:
     assert "result" in events2
     assert calls_after_second == calls_after_first
     metrics_body = m.json()
-    assert metrics_body["cache"]["enabled"] is True
     assert metrics_body["cache"]["hits"] > 0
+
+
+@respx.mock
+async def test_metrics_endpoint() -> None:
+    # Warm the cache with one /recommend call (misses), then hit it again (hits),
+    # then assert /metrics reports sensible counters. Does not pin exact values
+    # because the miss/hit counts depend on pipeline internals.
+    seed_artist, seed_title = "Radiohead", "Pyramid Song"
+
+    _route("track.getSimilar", seed_artist, seed_title, _similar_response([
+        _sim_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
+    ]))
+    _route("track.getTopTags", seed_artist, seed_title,
+           _tags_response(seed_artist, seed_title, [("alternative", 100)]))
+    _route("track.getTopTags", "Portishead", "Glory Box",
+           _tags_response("Portishead", "Glory Box", [("alternative", 60)]))
+
+    payload = {
+        "seeds": [{"artist": seed_artist, "title": seed_title}],
+        "params": {"novelty": 50, "genre_lock": [], "artist_diversity": 5, "length": 10},
+    }
+
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        await ac.post("/recommend", json=payload)   # populates cache (all misses)
+        await ac.post("/recommend", json=payload)   # serves from cache (all hits)
+        r = await ac.get("/metrics")
+
+    assert r.status_code == 200
+    body = r.json()["cache"]
+    assert isinstance(body["hits"], int)
+    assert isinstance(body["misses"], int)
+    assert isinstance(body["hit_rate"], float)
+    assert body["hits"] > 0
+    assert body["misses"] > 0
+    assert 0.0 < body["hit_rate"] < 1.0
