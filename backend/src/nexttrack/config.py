@@ -25,4 +25,5 @@ class Settings(BaseSettings):
 
 @lru_cache  # save so this doesn't reparse every time.
 def get_settings() -> Settings:
-    return Settings()
+    #NOTE flags error statically but doesn't actually get built at runtime so ignored.
+    return Settings()  # type: ignore[call-arg]

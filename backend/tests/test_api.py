@@ -1,26 +1,30 @@
-"""Integration test for api.py"""
+#API testing-- full integration
 import json
 from unittest.mock import AsyncMock, patch
 
+import fakeredis.aioredis
 import httpx
 import pytest
 import respx
+from asgi_lifespan import LifespanManager
 from httpx import ASGITransport
 
 from nexttrack.api import app
-from nexttrack.config import Settings, get_settings
+from nexttrack.config import get_settings
 from nexttrack.lastfm.client import BASE_URL
 from nexttrack.models import RecommendationResult, SeedProfile, TagCount
 
-
+#monkeypatch used for env variable setting in absence at test time
 @pytest.fixture(autouse=True)
-def _override_settings():
-    app.dependency_overrides[get_settings] = lambda: Settings(
-        lastfm_api_key="test_key",
-        user_agent_contact="test@example.com",
-    )
-    yield
-    app.dependency_overrides.pop(get_settings, None)
+async def _override_settings(monkeypatch):
+    monkeypatch.setenv("LASTFM_API_KEY", "test_key")
+    monkeypatch.setenv("USER_AGENT_CONTACT", "test@example.com")
+    get_settings.cache_clear()
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with patch("nexttrack.api.redis_asyncio.from_url", return_value=fake_redis):
+        async with LifespanManager(app):
+            yield
+    get_settings.cache_clear()
 
 # Shared  helpers  based on test_aggregate.py.
 # ----------------------------------------------------------------------
@@ -411,3 +415,101 @@ async def test_seed_profile_statelessness_recommend_unaffected() -> None:
     result = RecommendationResult.model_validate(rec.json())
     assert len(result.candidates) == 2
     assert result.candidates[0].title == "Glory Box"
+
+
+# Cache integration tests
+# ---------------------------------------------------------------------------
+
+@respx.mock
+async def test_cache_hit_on_second_recommend() -> None:
+    # Two identical POST /recommend calls should not poll last.fm
+    seed_artist, seed_title = "Radiohead", "Pyramid Song"
+
+    _route("track.getSimilar", seed_artist, seed_title, _similar_response([
+        _sim_track("Glory Box",  "Portishead",     match=0.9, playcount=5_000_000),
+        _sim_track("Teardrop",   "Massive Attack", match=0.7, playcount=8_000_000),
+    ]))
+    _route("track.getTopTags", seed_artist, seed_title,
+           _tags_response(seed_artist, seed_title, [("alternative", 100)]))
+    _route("track.getTopTags", "Portishead",     "Glory Box",
+           _tags_response("Portishead",     "Glory Box",  [("alternative", 60), ("trip-hop", 40)]))
+    _route("track.getTopTags", "Massive Attack", "Teardrop",
+           _tags_response("Massive Attack", "Teardrop",   [("trip-hop", 90), ("electronic", 70)]))
+
+    payload = {
+        "seeds": [{"artist": seed_artist, "title": seed_title}],
+        "params": {"novelty": 50, "genre_lock": [], "artist_diversity": 5, "length": 10},
+    }
+
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        r1 = await ac.post("/recommend", json=payload)
+        calls_after_first = len(respx.calls)
+
+        r2 = await ac.post("/recommend", json=payload)
+        calls_after_second = len(respx.calls)
+
+        m = await ac.get("/metrics")
+
+    assert r1.status_code == 200
+    assert r2.status_code == 200
+    assert calls_after_second == calls_after_first
+    metrics_body = m.json()
+    assert metrics_body["cache"]["enabled"] is True
+    assert metrics_body["cache"]["hits"] > 0
+
+
+@respx.mock
+async def test_cache_hit_on_second_recommend_stream() -> None:
+    # Same as above but for the SSE streaming endpoint.
+    seed_artist, seed_title = "Radiohead", "Pyramid Song"
+
+    _route("track.getSimilar", seed_artist, seed_title, _similar_response([
+        _sim_track("Glory Box",  "Portishead",     match=0.9, playcount=5_000_000),
+        _sim_track("Teardrop",   "Massive Attack", match=0.7, playcount=8_000_000),
+    ]))
+    _route("track.getTopTags", seed_artist, seed_title,
+           _tags_response(seed_artist, seed_title, [("alternative", 100)]))
+    _route("track.getTopTags", "Portishead",     "Glory Box",
+           _tags_response("Portishead",     "Glory Box",  [("alternative", 60), ("trip-hop", 40)]))
+    _route("track.getTopTags", "Massive Attack", "Teardrop",
+           _tags_response("Massive Attack", "Teardrop",   [("trip-hop", 90), ("electronic", 70)]))
+
+    payload = {
+        "seeds": [{"artist": seed_artist, "title": seed_title}],
+        "params": {"novelty": 50, "genre_lock": [], "artist_diversity": 5, "length": 10},
+    }
+
+    async def consume_stream(ac: httpx.AsyncClient) -> list[str]:
+        events: list[str] = []
+        async with ac.stream("POST", "/recommend/stream", json=payload) as resp:
+            assert resp.status_code == 200
+            current_event: str | None = None
+            async for line in resp.aiter_lines():
+                if line.startswith("event:"):
+                    current_event = line[len("event:"):].strip()
+                elif line == "" and current_event is not None:
+                    events.append(current_event)
+                    current_event = None
+            if current_event is not None:
+                events.append(current_event)
+        return events
+
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        events1 = await consume_stream(ac)
+        calls_after_first = len(respx.calls)
+
+        events2 = await consume_stream(ac)
+        calls_after_second = len(respx.calls)
+
+        m = await ac.get("/metrics")
+
+    assert "result" in events1
+    assert "result" in events2
+    assert calls_after_second == calls_after_first
+    metrics_body = m.json()
+    assert metrics_body["cache"]["enabled"] is True
+    assert metrics_body["cache"]["hits"] > 0
