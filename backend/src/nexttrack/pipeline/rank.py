@@ -17,8 +17,7 @@ def rank(
     if params.genre_lock:
         genre_set = {g.lower() for g in params.genre_lock}
         pool = [
-            c for c in candidates
-            if any(t.lower() in genre_set for t in c.matched_tags)
+            c for c in candidates if any(t.lower() in genre_set for t in c.matched_tags)
         ]
     else:
         pool = list(candidates)
@@ -47,7 +46,7 @@ def rank(
             counts[key] = counts.get(key, 0) + 1
     scored = diverse
 
-    #return final results list
+    # return final results list
     return RecommendationResult(
         candidates=scored[: params.length],
         dropped_seeds=dropped_seeds,

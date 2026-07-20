@@ -1,7 +1,8 @@
 from nexttrack.models import Candidate, RecommendationParams, RecommendationResult
 from nexttrack.pipeline.rank import rank
 
-#confirm a recommendation is produced
+
+# confirm a recommendation is produced
 def test_rank_returns_recommendation_result():
     c = Candidate(
         artist="Portishead",
@@ -13,6 +14,8 @@ def test_rank_returns_recommendation_result():
         contributing_seeds=["Radiohead/Pyramid Song"],
         matched_tags=["trip-hop"],
     )
-    params = RecommendationParams(novelty=50, genre_lock=[], artist_diversity=3, length=10)
+    params = RecommendationParams(
+        novelty=50, genre_lock=[], artist_diversity=3, length=10
+    )
     result = rank([c], [], params)
     assert isinstance(result, RecommendationResult)

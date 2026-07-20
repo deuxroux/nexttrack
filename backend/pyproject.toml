@@ -33,6 +33,7 @@ dev = [
     "asgi-lifespan>=2.0",
     "fakeredis>=2.20",
     "httpx>=0.28.1",
+    "hypothesis>=6.100",
     "pytest>=8.4.2",
     "pytest-asyncio>=1.2.0",
     "python-dotenv>=1.2.1",

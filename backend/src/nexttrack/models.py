@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 
-#data representations in this file
+# data representations in this file
+
 
 class Track(BaseModel):
     artist: str
@@ -23,7 +24,9 @@ class Candidate(BaseModel):
     final_score: float
     contributing_seeds: list[str]
     matched_tags: list[str]
-    explanation: list[str] = []  # non-empty if any contributing seed used a fallback route
+    explanation: list[
+        str
+    ] = []  # non-empty if any contributing seed used a fallback route
 
 
 class StageEvent(BaseModel):
@@ -39,12 +42,12 @@ class TagCount(BaseModel):
 
 
 class SeedProfile(BaseModel):
-    tags: list[TagCount]         # sorted desc by seed_count, ties broken alpha by name
+    tags: list[TagCount]  # sorted desc by seed_count, ties broken alpha by name
     dropped_seeds: list[str]
-    total_seeds: int             # len(original input) — includes dropped seeds
+    total_seeds: int  # includes dropped seeds
 
 
 class RecommendationResult(BaseModel):
     candidates: list[Candidate]
     dropped_seeds: list[str]
-    params: RecommendationParams #nested details from params that contributed.
+    params: RecommendationParams  # nested details from params that contributed.

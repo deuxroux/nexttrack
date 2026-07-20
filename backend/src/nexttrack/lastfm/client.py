@@ -8,13 +8,13 @@ import httpx
 
 BASE_URL = "https://ws.audioscrobbler.com/2.0/"
 
-#hard code defaults
-_ARTIST_SIMILAR_LIMIT = 5   # similar artists limit; if track.getSimilar is empty
-_ARTIST_TRACKS_LIMIT = 10   # top tracks per similar artist in fallback
-_RATE_LIMIT = 5             # max outbound Last.fm requests per second
+# hard code defaults
+_ARTIST_SIMILAR_LIMIT = 5  # similar artists limit; if track.getSimilar is empty
+_ARTIST_TRACKS_LIMIT = 10  # top tracks per similar artist in fallback
+_RATE_LIMIT = 5  # max outbound Last.fm requests per second
 
 
-#aggregation specific models only. others in the models.py file
+# aggregation specific models only. others in the models.py file
 @dataclass
 class SimilarTracksResult:
     tracks: list[dict]
@@ -30,7 +30,7 @@ class TopTagsResult:
 
 
 class LastfmClient:
-    #reminder: api key is not exposed. requires an individual's key in a separate env file.
+    # reminder: api key is not exposed. requires an individual's key in a separate env file.
     def __init__(
         self,
         client: httpx.AsyncClient,
@@ -52,7 +52,12 @@ class LastfmClient:
 
         resp = await self._client.get(
             BASE_URL,
-            params={"api_key": self._api_key, "format": "json", "autocorrect": "1", **params},
+            params={
+                "api_key": self._api_key,
+                "format": "json",
+                "autocorrect": "1",
+                **params,
+            },
         )
         resp.raise_for_status()
         return resp.json()
@@ -65,7 +70,9 @@ class LastfmClient:
             if cached is not None:
                 return SimilarTracksResult(tracks=cached["tracks"])
 
-        data = await self._fetch(method="track.getSimilar", artist=artist, track=title, limit=50)
+        data = await self._fetch(
+            method="track.getSimilar", artist=artist, track=title, limit=50
+        )
         raw = data.get("similartracks", {}).get("track", [])
         if raw:
             parsed = self._parse_similar_tracks(raw)
@@ -113,7 +120,9 @@ class LastfmClient:
 
     #  artist.getSimilar + artist.getTopTracks fallback
 
-    async def _fallback_artist_similar(self, artist: str, title: str) -> SimilarTracksResult:
+    async def _fallback_artist_similar(
+        self, artist: str, title: str
+    ) -> SimilarTracksResult:
         data = await self._fetch(
             method="artist.getSimilar", artist=artist, limit=_ARTIST_SIMILAR_LIMIT
         )
@@ -122,12 +131,14 @@ class LastfmClient:
         for sa in similar:
             sa_match = float(sa["match"])
             for t in await self._artist_top_tracks(sa["name"]):
-                tracks.append({
-                    "name": t["name"],
-                    "artist": sa["name"],
-                    "match": sa_match,
-                    "playcount": t["playcount"],
-                })
+                tracks.append(
+                    {
+                        "name": t["name"],
+                        "artist": sa["name"],
+                        "match": sa_match,
+                        "playcount": t["playcount"],
+                    }
+                )
         return SimilarTracksResult(
             tracks=tracks,
             fallback_used=True,
@@ -141,10 +152,7 @@ class LastfmClient:
             method="artist.getTopTracks", artist=artist, limit=_ARTIST_TRACKS_LIMIT
         )
         raw = data.get("toptracks", {}).get("track", [])
-        return [
-            {"name": t["name"], "playcount": int(t["playcount"])}
-            for t in raw
-        ]
+        return [{"name": t["name"], "playcount": int(t["playcount"])} for t in raw]
 
     #  artist.getTopTags fallback
 

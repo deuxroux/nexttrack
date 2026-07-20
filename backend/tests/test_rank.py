@@ -1,4 +1,4 @@
-#tests for pipeline/rank.py verifying ordering, filters, diversity, truncation
+# tests for pipeline/rank.py verifying ordering, filters, diversity, truncation
 import pytest
 
 from nexttrack.models import Candidate, RecommendationParams
@@ -6,6 +6,7 @@ from nexttrack.pipeline.rank import W_SIM, W_TAG, _W_TOTAL, rank
 
 
 # HELPERS
+
 
 def _cand(
     artist: str,
@@ -35,6 +36,7 @@ def _params(**kw) -> RecommendationParams:
 
 # Ordering Tests -- novelty sweep
 
+
 def test_novelty_0_prefers_similarity():
     # novelty=0 means highest similarity wins
     high_sim = _cand("A", "High Sim", sim=0.9, novelty_bonus=0.1)
@@ -50,7 +52,7 @@ def test_novelty_100_flips_order():
     assert result.candidates[0].artist == "B"
 
 
-#verify scoring formula returns accurate score
+# verify scoring formula returns accurate score
 def test_score_formula():
     # Single-candidate pool: max_sim = 0.8, so norm_sim = 1.0
     c = _cand("A", "T", sim=0.8, novelty_bonus=0.6, tag_overlap=0.4)
@@ -64,8 +66,11 @@ def test_score_formula():
 
 # Genre lock test
 
+
 def test_genre_lock_excludes_non_matching():
-    rock = _cand("A", "Rock Track", sim=0.9, novelty_bonus=0.5, tags=["alternative", "rock"])
+    rock = _cand(
+        "A", "Rock Track", sim=0.9, novelty_bonus=0.5, tags=["alternative", "rock"]
+    )
     jazz = _cand("B", "Jazz Track", sim=0.8, novelty_bonus=0.5, tags=["jazz"])
     result = rank([rock, jazz], [], _params(genre_lock=["rock"]))
     assert len(result.candidates) == 1
@@ -93,9 +98,13 @@ def test_genre_lock_no_match_returns_empty():
 
 # Artist diversity cap tests-- verified that radiohead returns radiohead
 
+
 def test_artist_diversity_caps_per_artist():
     # Four Radiohead tracks; cap at 2
-    rh = [_cand("Radiohead", f"T{i}", sim=0.9 - i * 0.1, novelty_bonus=0.0) for i in range(4)]
+    rh = [
+        _cand("Radiohead", f"T{i}", sim=0.9 - i * 0.1, novelty_bonus=0.0)
+        for i in range(4)
+    ]
     result = rank(rh, [], _params(artist_diversity=2, length=10))
     radiohead = [c for c in result.candidates if c.artist == "Radiohead"]
     assert len(radiohead) == 2
@@ -103,7 +112,10 @@ def test_artist_diversity_caps_per_artist():
 
 def test_artist_diversity_keeps_highest_scoring():
     # First two (highest score with novelty=0) should survive
-    rh = [_cand("Radiohead", f"T{i}", sim=0.9 - i * 0.1, novelty_bonus=0.0) for i in range(4)]
+    rh = [
+        _cand("Radiohead", f"T{i}", sim=0.9 - i * 0.1, novelty_bonus=0.0)
+        for i in range(4)
+    ]
     result = rank(rh, [], _params(novelty=0, artist_diversity=2, length=10))
     titles = [c.title for c in result.candidates]
     assert titles == ["T0", "T1"]
@@ -118,7 +130,10 @@ def test_artist_diversity_max_passes_all():
 
 def test_artist_diversity_interleaves_artists():
     # Portishead track should survive even though Radiohead ranks higher overall
-    rh = [_cand("Radiohead", f"T{i}", sim=0.9 - i * 0.05, novelty_bonus=0.0) for i in range(3)]
+    rh = [
+        _cand("Radiohead", f"T{i}", sim=0.9 - i * 0.05, novelty_bonus=0.0)
+        for i in range(3)
+    ]
     pt = _cand("Portishead", "Glory Box", sim=0.5, novelty_bonus=0.0)
     result = rank(rh + [pt], [], _params(novelty=0, artist_diversity=1, length=10))
     artists = {c.artist for c in result.candidates}
@@ -128,17 +143,24 @@ def test_artist_diversity_interleaves_artists():
 def test_artist_diversity_cap_and_sort_order_multiartist():
     # 3 Radiohead (sims 0.9, 0.7, 0.5) + 2 Portishead (sims 0.8, 0.6); cap=1 per artist
     # Expected after cap: RH0 (highest RH) and PH0 (highest PH), in score order
-    rh = [_cand("Radiohead", f"RH{i}", sim=0.9 - i * 0.2, novelty_bonus=0.0) for i in range(3)]
-    ph = [_cand("Portishead", f"PH{i}", sim=0.8 - i * 0.2, novelty_bonus=0.0) for i in range(2)]
+    rh = [
+        _cand("Radiohead", f"RH{i}", sim=0.9 - i * 0.2, novelty_bonus=0.0)
+        for i in range(3)
+    ]
+    ph = [
+        _cand("Portishead", f"PH{i}", sim=0.8 - i * 0.2, novelty_bonus=0.0)
+        for i in range(2)
+    ]
     result = rank(rh + ph, [], _params(novelty=0, artist_diversity=1, length=10))
     assert len(result.candidates) == 2
-    assert result.candidates[0].title == "RH0"   # highest overall score
-    assert result.candidates[1].title == "PH0"   # highest Portishead score
+    assert result.candidates[0].title == "RH0"  # highest overall score
+    assert result.candidates[1].title == "PH0"  # highest Portishead score
     assert result.candidates[0].artist == "Radiohead"
     assert result.candidates[1].artist == "Portishead"
 
 
 # Truncation-- exact number of tracks to be returned tests
+
 
 def test_length_truncates():
     cands = [_cand("A", f"T{i}", sim=float(i), novelty_bonus=0.0) for i in range(10)]
@@ -153,6 +175,7 @@ def test_length_larger_than_pool_returns_all():
 
 
 # Contract confirming results
+
 
 def test_params_preserved_in_result():
     params = _params(novelty=42, genre_lock=["rock"], length=5)

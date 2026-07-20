@@ -1,4 +1,4 @@
-#API testing-- full integration
+# API testing-- full integration
 import json
 from unittest.mock import AsyncMock, patch
 
@@ -14,11 +14,14 @@ from nexttrack.config import get_settings
 from nexttrack.lastfm.client import BASE_URL
 from nexttrack.models import RecommendationResult, SeedProfile, TagCount
 
-#monkeypatch used for env variable setting in absence at test time
+
+# monkeypatch used for env variable setting in absence at test time
 @pytest.fixture(autouse=True)
 async def _override_settings(monkeypatch):
     monkeypatch.setenv("LASTFM_API_KEY", "test_key")
     monkeypatch.setenv("USER_AGENT_CONTACT", "test@example.com")
+    monkeypatch.setenv("SPOTIFY_CLIENT_ID", "")
+    monkeypatch.setenv("SPOTIFY_CLIENT_SECRET", "")
     get_settings.cache_clear()
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with patch("nexttrack.api.redis_asyncio.from_url", return_value=fake_redis):
@@ -26,8 +29,10 @@ async def _override_settings(monkeypatch):
             yield
     get_settings.cache_clear()
 
+
 # Shared  helpers  based on test_aggregate.py.
 # ----------------------------------------------------------------------
+
 
 def _similar_response(tracks: list[dict]) -> dict:
     return {"similartracks": {"track": tracks}}
@@ -80,6 +85,7 @@ def _artist_similar_response(artists: list[tuple[str, float]]) -> dict:
 # Tests for api routes
 # ---------------------------------------------------------------------------
 
+
 async def test_health() -> None:
     async with httpx.AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
@@ -91,22 +97,47 @@ async def test_health() -> None:
 
 @respx.mock
 async def test_recommend_200_and_valid_result() -> None:
-    #confirm POST /recommend returns 200 and a deserializable RecommendationResult.
+    # confirm POST /recommend returns 200 and a deserializable RecommendationResult.
     seed_artist, seed_title = "Radiohead", "Pyramid Song"
 
     # getSimilar for  single seed
-    _route("track.getSimilar", seed_artist, seed_title, _similar_response([
-        _sim_track("Glory Box",  "Portishead",     match=0.9, playcount=5_000_000),
-        _sim_track("Teardrop",   "Massive Attack", match=0.7, playcount=8_000_000),
-    ]))
+    _route(
+        "track.getSimilar",
+        seed_artist,
+        seed_title,
+        _similar_response(
+            [
+                _sim_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
+                _sim_track(
+                    "Teardrop", "Massive Attack", match=0.7, playcount=8_000_000
+                ),
+            ]
+        ),
+    )
 
     # getTopTags should return seed + candidates
-    _route("track.getTopTags", seed_artist, seed_title,
-           _tags_response(seed_artist, seed_title, [("alternative", 100)]))
-    _route("track.getTopTags", "Portishead",     "Glory Box",
-           _tags_response("Portishead",     "Glory Box",  [("alternative", 60), ("trip-hop", 40)]))
-    _route("track.getTopTags", "Massive Attack", "Teardrop",
-           _tags_response("Massive Attack", "Teardrop",   [("trip-hop", 90), ("electronic", 70)]))
+    _route(
+        "track.getTopTags",
+        seed_artist,
+        seed_title,
+        _tags_response(seed_artist, seed_title, [("alternative", 100)]),
+    )
+    _route(
+        "track.getTopTags",
+        "Portishead",
+        "Glory Box",
+        _tags_response(
+            "Portishead", "Glory Box", [("alternative", 60), ("trip-hop", 40)]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        "Massive Attack",
+        "Teardrop",
+        _tags_response(
+            "Massive Attack", "Teardrop", [("trip-hop", 90), ("electronic", 70)]
+        ),
+    )
 
     async with httpx.AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
@@ -133,6 +164,7 @@ async def test_recommend_200_and_valid_result() -> None:
 
 # Seed input cap validation (min=1, max=50)
 # ---------------------------------------------------------------------------
+
 
 async def test_recommend_empty_seeds_returns_422() -> None:
     async with httpx.AsyncClient(
@@ -172,24 +204,55 @@ async def test_recommend_too_many_seeds_returns_422() -> None:
 # Streaming endpoint
 # ---------------------------------------------------------------------------
 
+
 @respx.mock
 async def test_recommend_stream_event_order_and_result() -> None:
     seed_artist, seed_title = "Radiohead", "Pyramid Song"
 
-    _route("track.getSimilar", seed_artist, seed_title, _similar_response([
-        _sim_track("Glory Box",  "Portishead",     match=0.9, playcount=5_000_000),
-        _sim_track("Teardrop",   "Massive Attack", match=0.7, playcount=8_000_000),
-    ]))
-    _route("track.getTopTags", seed_artist, seed_title,
-           _tags_response(seed_artist, seed_title, [("alternative", 100)]))
-    _route("track.getTopTags", "Portishead",     "Glory Box",
-           _tags_response("Portishead",     "Glory Box",  [("alternative", 60), ("trip-hop", 40)]))
-    _route("track.getTopTags", "Massive Attack", "Teardrop",
-           _tags_response("Massive Attack", "Teardrop",   [("trip-hop", 90), ("electronic", 70)]))
+    _route(
+        "track.getSimilar",
+        seed_artist,
+        seed_title,
+        _similar_response(
+            [
+                _sim_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
+                _sim_track(
+                    "Teardrop", "Massive Attack", match=0.7, playcount=8_000_000
+                ),
+            ]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        seed_artist,
+        seed_title,
+        _tags_response(seed_artist, seed_title, [("alternative", 100)]),
+    )
+    _route(
+        "track.getTopTags",
+        "Portishead",
+        "Glory Box",
+        _tags_response(
+            "Portishead", "Glory Box", [("alternative", 60), ("trip-hop", 40)]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        "Massive Attack",
+        "Teardrop",
+        _tags_response(
+            "Massive Attack", "Teardrop", [("trip-hop", 90), ("electronic", 70)]
+        ),
+    )
 
     payload = {
         "seeds": [{"artist": seed_artist, "title": seed_title}],
-        "params": {"novelty": 50, "genre_lock": [], "artist_diversity": 5, "length": 10},
+        "params": {
+            "novelty": 50,
+            "genre_lock": [],
+            "artist_diversity": 5,
+            "length": 10,
+        },
     }
 
     received: list[tuple[str, str]] = []
@@ -202,9 +265,9 @@ async def test_recommend_stream_event_order_and_result() -> None:
             current_data: str | None = None
             async for line in resp.aiter_lines():
                 if line.startswith("event:"):
-                    current_event = line[len("event:"):].strip()
+                    current_event = line[len("event:") :].strip()
                 elif line.startswith("data:"):
-                    current_data = line[len("data:"):].strip()
+                    current_data = line[len("data:") :].strip()
                 elif line == "" and current_event is not None:
                     received.append((current_event, current_data or ""))
                     current_event = None
@@ -241,27 +304,55 @@ async def test_recommend_stream_disconnect_cuts_last_fm_calls() -> None:
     # (which happen after the disconnect boundary) are never made.
     seed_artist, seed_title = "Radiohead", "Pyramid Song"
 
-    _route("track.getSimilar", seed_artist, seed_title, _similar_response([
-        _sim_track("Glory Box",  "Portishead",     match=0.9, playcount=5_000_000),
-        _sim_track("Teardrop",   "Massive Attack", match=0.7, playcount=8_000_000),
-    ]))
-    _route("track.getTopTags", seed_artist, seed_title,
-           _tags_response(seed_artist, seed_title, [("alternative", 100)]))
+    _route(
+        "track.getSimilar",
+        seed_artist,
+        seed_title,
+        _similar_response(
+            [
+                _sim_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
+                _sim_track(
+                    "Teardrop", "Massive Attack", match=0.7, playcount=8_000_000
+                ),
+            ]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        seed_artist,
+        seed_title,
+        _tags_response(seed_artist, seed_title, [("alternative", 100)]),
+    )
     # These two routes must NOT be reached after disconnect
-    _route("track.getTopTags", "Portishead",     "Glory Box",
-           _tags_response("Portishead",     "Glory Box",  [("alternative", 60)]))
-    _route("track.getTopTags", "Massive Attack", "Teardrop",
-           _tags_response("Massive Attack", "Teardrop",   [("trip-hop", 90)]))
+    _route(
+        "track.getTopTags",
+        "Portishead",
+        "Glory Box",
+        _tags_response("Portishead", "Glory Box", [("alternative", 60)]),
+    )
+    _route(
+        "track.getTopTags",
+        "Massive Attack",
+        "Teardrop",
+        _tags_response("Massive Attack", "Teardrop", [("trip-hop", 90)]),
+    )
 
     payload = {
         "seeds": [{"artist": seed_artist, "title": seed_title}],
-        "params": {"novelty": 50, "genre_lock": [], "artist_diversity": 5, "length": 10},
+        "params": {
+            "novelty": 50,
+            "genre_lock": [],
+            "artist_diversity": 5,
+            "length": 10,
+        },
     }
 
     received: list[str] = []
     # Patch is_disconnected to return True on every call so the generator exits
     # immediately after yielding the first StageEvent (similarity).
-    with patch("starlette.requests.Request.is_disconnected", AsyncMock(return_value=True)):
+    with patch(
+        "starlette.requests.Request.is_disconnected", AsyncMock(return_value=True)
+    ):
         async with httpx.AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"
         ) as ac:
@@ -270,7 +361,7 @@ async def test_recommend_stream_disconnect_cuts_last_fm_calls() -> None:
                 current_event: str | None = None
                 async for line in resp.aiter_lines():
                     if line.startswith("event:"):
-                        current_event = line[len("event:"):].strip()
+                        current_event = line[len("event:") :].strip()
                     elif line == "" and current_event is not None:
                         received.append(current_event)
                         current_event = None
@@ -290,29 +381,56 @@ async def test_recommend_stream_disconnect_cuts_last_fm_calls() -> None:
 # /seed-profile endpoint
 # ---------------------------------------------------------------------------
 
+
 @respx.mock
 async def test_seed_profile_happy_path() -> None:
     # Two seeds sharing "alternative"; unique tags verify sort order.
-    _route("track.getSimilar", "Radiohead", "Pyramid Song", _similar_response([
-        _sim_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
-    ]))
-    _route("track.getSimilar", "Dr. Dog", "Shadow People", _similar_response([
-        _sim_track("Pink Moon", "Nick Drake", match=0.5, playcount=2_000_000),
-    ]))
-    _route("track.getTopTags", "Radiohead", "Pyramid Song",
-           _tags_response("Radiohead", "Pyramid Song", [("alternative", 100), ("art rock", 50)]))
-    _route("track.getTopTags", "Dr. Dog", "Shadow People",
-           _tags_response("Dr. Dog", "Shadow People", [("alternative", 80), ("folk", 40)]))
+    _route(
+        "track.getSimilar",
+        "Radiohead",
+        "Pyramid Song",
+        _similar_response(
+            [
+                _sim_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
+            ]
+        ),
+    )
+    _route(
+        "track.getSimilar",
+        "Dr. Dog",
+        "Shadow People",
+        _similar_response(
+            [
+                _sim_track("Pink Moon", "Nick Drake", match=0.5, playcount=2_000_000),
+            ]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        "Radiohead",
+        "Pyramid Song",
+        _tags_response(
+            "Radiohead", "Pyramid Song", [("alternative", 100), ("art rock", 50)]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        "Dr. Dog",
+        "Shadow People",
+        _tags_response("Dr. Dog", "Shadow People", [("alternative", 80), ("folk", 40)]),
+    )
 
     async with httpx.AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         r = await ac.post(
             "/seed-profile",
-            json={"seeds": [
-                {"artist": "Radiohead", "title": "Pyramid Song"},
-                {"artist": "Dr. Dog",   "title": "Shadow People"},
-            ]},
+            json={
+                "seeds": [
+                    {"artist": "Radiohead", "title": "Pyramid Song"},
+                    {"artist": "Dr. Dog", "title": "Shadow People"},
+                ]
+            },
         )
 
     assert r.status_code == 200
@@ -327,8 +445,8 @@ async def test_seed_profile_happy_path() -> None:
 
     # sort: desc seed_count, then alpha on name
     assert profile.tags[0] == TagCount(name="alternative", seed_count=2)
-    assert profile.tags[1] == TagCount(name="art rock",    seed_count=1)
-    assert profile.tags[2] == TagCount(name="folk",        seed_count=1)
+    assert profile.tags[1] == TagCount(name="art rock", seed_count=1)
+    assert profile.tags[2] == TagCount(name="folk", seed_count=1)
 
 
 @respx.mock
@@ -383,16 +501,37 @@ async def test_seed_profile_statelessness_recommend_unaffected() -> None:
 
     # Routes for both /seed-profile and /recommend — each call hits Last.fm
     # independently; respx serves the same mock response to every call.
-    _route("track.getSimilar", seed_artist, seed_title, _similar_response([
-        _sim_track("Glory Box",  "Portishead",     match=0.9, playcount=5_000_000),
-        _sim_track("Teardrop",   "Massive Attack", match=0.7, playcount=8_000_000),
-    ]))
-    _route("track.getTopTags", seed_artist, seed_title,
-           _tags_response(seed_artist, seed_title, [("alternative", 100)]))
-    _route("track.getTopTags", "Portishead",     "Glory Box",
-           _tags_response("Portishead",     "Glory Box",  [("alternative", 60)]))
-    _route("track.getTopTags", "Massive Attack", "Teardrop",
-           _tags_response("Massive Attack", "Teardrop",   [("trip-hop", 90)]))
+    _route(
+        "track.getSimilar",
+        seed_artist,
+        seed_title,
+        _similar_response(
+            [
+                _sim_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
+                _sim_track(
+                    "Teardrop", "Massive Attack", match=0.7, playcount=8_000_000
+                ),
+            ]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        seed_artist,
+        seed_title,
+        _tags_response(seed_artist, seed_title, [("alternative", 100)]),
+    )
+    _route(
+        "track.getTopTags",
+        "Portishead",
+        "Glory Box",
+        _tags_response("Portishead", "Glory Box", [("alternative", 60)]),
+    )
+    _route(
+        "track.getTopTags",
+        "Massive Attack",
+        "Teardrop",
+        _tags_response("Massive Attack", "Teardrop", [("trip-hop", 90)]),
+    )
 
     payload_seeds = [{"artist": seed_artist, "title": seed_title}]
 
@@ -404,7 +543,12 @@ async def test_seed_profile_statelessness_recommend_unaffected() -> None:
             "/recommend",
             json={
                 "seeds": payload_seeds,
-                "params": {"novelty": 50, "genre_lock": [], "artist_diversity": 5, "length": 10},
+                "params": {
+                    "novelty": 50,
+                    "genre_lock": [],
+                    "artist_diversity": 5,
+                    "length": 10,
+                },
             },
         )
 
@@ -420,25 +564,56 @@ async def test_seed_profile_statelessness_recommend_unaffected() -> None:
 # Cache integration tests
 # ---------------------------------------------------------------------------
 
+
 @respx.mock
 async def test_cache_hit_on_second_recommend() -> None:
     # Two identical POST /recommend calls should not poll last.fm
     seed_artist, seed_title = "Radiohead", "Pyramid Song"
 
-    _route("track.getSimilar", seed_artist, seed_title, _similar_response([
-        _sim_track("Glory Box",  "Portishead",     match=0.9, playcount=5_000_000),
-        _sim_track("Teardrop",   "Massive Attack", match=0.7, playcount=8_000_000),
-    ]))
-    _route("track.getTopTags", seed_artist, seed_title,
-           _tags_response(seed_artist, seed_title, [("alternative", 100)]))
-    _route("track.getTopTags", "Portishead",     "Glory Box",
-           _tags_response("Portishead",     "Glory Box",  [("alternative", 60), ("trip-hop", 40)]))
-    _route("track.getTopTags", "Massive Attack", "Teardrop",
-           _tags_response("Massive Attack", "Teardrop",   [("trip-hop", 90), ("electronic", 70)]))
+    _route(
+        "track.getSimilar",
+        seed_artist,
+        seed_title,
+        _similar_response(
+            [
+                _sim_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
+                _sim_track(
+                    "Teardrop", "Massive Attack", match=0.7, playcount=8_000_000
+                ),
+            ]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        seed_artist,
+        seed_title,
+        _tags_response(seed_artist, seed_title, [("alternative", 100)]),
+    )
+    _route(
+        "track.getTopTags",
+        "Portishead",
+        "Glory Box",
+        _tags_response(
+            "Portishead", "Glory Box", [("alternative", 60), ("trip-hop", 40)]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        "Massive Attack",
+        "Teardrop",
+        _tags_response(
+            "Massive Attack", "Teardrop", [("trip-hop", 90), ("electronic", 70)]
+        ),
+    )
 
     payload = {
         "seeds": [{"artist": seed_artist, "title": seed_title}],
-        "params": {"novelty": 50, "genre_lock": [], "artist_diversity": 5, "length": 10},
+        "params": {
+            "novelty": 50,
+            "genre_lock": [],
+            "artist_diversity": 5,
+            "length": 10,
+        },
     }
 
     async with httpx.AsyncClient(
@@ -464,20 +639,50 @@ async def test_cache_hit_on_second_recommend_stream() -> None:
     # Same as above but for the SSE streaming endpoint.
     seed_artist, seed_title = "Radiohead", "Pyramid Song"
 
-    _route("track.getSimilar", seed_artist, seed_title, _similar_response([
-        _sim_track("Glory Box",  "Portishead",     match=0.9, playcount=5_000_000),
-        _sim_track("Teardrop",   "Massive Attack", match=0.7, playcount=8_000_000),
-    ]))
-    _route("track.getTopTags", seed_artist, seed_title,
-           _tags_response(seed_artist, seed_title, [("alternative", 100)]))
-    _route("track.getTopTags", "Portishead",     "Glory Box",
-           _tags_response("Portishead",     "Glory Box",  [("alternative", 60), ("trip-hop", 40)]))
-    _route("track.getTopTags", "Massive Attack", "Teardrop",
-           _tags_response("Massive Attack", "Teardrop",   [("trip-hop", 90), ("electronic", 70)]))
+    _route(
+        "track.getSimilar",
+        seed_artist,
+        seed_title,
+        _similar_response(
+            [
+                _sim_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
+                _sim_track(
+                    "Teardrop", "Massive Attack", match=0.7, playcount=8_000_000
+                ),
+            ]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        seed_artist,
+        seed_title,
+        _tags_response(seed_artist, seed_title, [("alternative", 100)]),
+    )
+    _route(
+        "track.getTopTags",
+        "Portishead",
+        "Glory Box",
+        _tags_response(
+            "Portishead", "Glory Box", [("alternative", 60), ("trip-hop", 40)]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        "Massive Attack",
+        "Teardrop",
+        _tags_response(
+            "Massive Attack", "Teardrop", [("trip-hop", 90), ("electronic", 70)]
+        ),
+    )
 
     payload = {
         "seeds": [{"artist": seed_artist, "title": seed_title}],
-        "params": {"novelty": 50, "genre_lock": [], "artist_diversity": 5, "length": 10},
+        "params": {
+            "novelty": 50,
+            "genre_lock": [],
+            "artist_diversity": 5,
+            "length": 10,
+        },
     }
 
     async def consume_stream(ac: httpx.AsyncClient) -> list[str]:
@@ -487,7 +692,7 @@ async def test_cache_hit_on_second_recommend_stream() -> None:
             current_event: str | None = None
             async for line in resp.aiter_lines():
                 if line.startswith("event:"):
-                    current_event = line[len("event:"):].strip()
+                    current_event = line[len("event:") :].strip()
                 elif line == "" and current_event is not None:
                     events.append(current_event)
                     current_event = None
@@ -515,36 +720,114 @@ async def test_cache_hit_on_second_recommend_stream() -> None:
 
 @respx.mock
 async def test_metrics_endpoint() -> None:
-    # Warm the cache with one /recommend call (misses), then hit it again (hits),
-    # then assert /metrics reports sensible counters. Does not pin exact values
-    # because the miss/hit counts depend on pipeline internals.
+    # Warm the cache with one /recommend call then again. then assert /metrics reports counters
     seed_artist, seed_title = "Radiohead", "Pyramid Song"
 
-    _route("track.getSimilar", seed_artist, seed_title, _similar_response([
-        _sim_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
-    ]))
-    _route("track.getTopTags", seed_artist, seed_title,
-           _tags_response(seed_artist, seed_title, [("alternative", 100)]))
-    _route("track.getTopTags", "Portishead", "Glory Box",
-           _tags_response("Portishead", "Glory Box", [("alternative", 60)]))
+    _route(
+        "track.getSimilar",
+        seed_artist,
+        seed_title,
+        _similar_response(
+            [
+                _sim_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
+            ]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        seed_artist,
+        seed_title,
+        _tags_response(seed_artist, seed_title, [("alternative", 100)]),
+    )
+    _route(
+        "track.getTopTags",
+        "Portishead",
+        "Glory Box",
+        _tags_response("Portishead", "Glory Box", [("alternative", 60)]),
+    )
 
     payload = {
         "seeds": [{"artist": seed_artist, "title": seed_title}],
-        "params": {"novelty": 50, "genre_lock": [], "artist_diversity": 5, "length": 10},
+        "params": {
+            "novelty": 50,
+            "genre_lock": [],
+            "artist_diversity": 5,
+            "length": 10,
+        },
     }
 
     async with httpx.AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
+        transport=ASGITransport(app=app),
+        base_url="http://test",  # httpx test suite dummy required for asgit
     ) as ac:
-        await ac.post("/recommend", json=payload)   # populates cache (all misses)
-        await ac.post("/recommend", json=payload)   # serves from cache (all hits)
+        await ac.post("/recommend", json=payload)  # populates cache-- should all miss
+        await ac.post(
+            "/recommend", json=payload
+        )  # serves from cache, all should be hits now.
         r = await ac.get("/metrics")
 
     assert r.status_code == 200
     body = r.json()["cache"]
-    assert isinstance(body["hits"], int)
+    assert isinstance(body["hits"], int)  # confirm exists and is in reasonable bounds
     assert isinstance(body["misses"], int)
     assert isinstance(body["hit_rate"], float)
     assert body["hits"] > 0
     assert body["misses"] > 0
     assert 0.0 < body["hit_rate"] < 1.0
+
+
+# CSV export via format=csv query param
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+async def test_recommend_csv_format() -> None:
+    seed_artist, seed_title = "Radiohead", "Pyramid Song"
+
+    _route(
+        "track.getSimilar",
+        seed_artist,
+        seed_title,
+        _similar_response(
+            [
+                _sim_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
+            ]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        seed_artist,
+        seed_title,
+        _tags_response(seed_artist, seed_title, [("alternative", 100)]),
+    )
+    _route(
+        "track.getTopTags",
+        "Portishead",
+        "Glory Box",
+        _tags_response("Portishead", "Glory Box", [("alternative", 60)]),
+    )
+
+    payload = {
+        "seeds": [{"artist": seed_artist, "title": seed_title}],
+        "params": {
+            "novelty": 60,
+            "genre_lock": [],
+            "artist_diversity": 3,
+            "length": 10,
+        },
+    }
+
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        r = await ac.post("/recommend?format=csv", json=payload)
+
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/csv")
+    assert "attachment" in r.headers["content-disposition"]
+    assert "nexttrack_" in r.headers["content-disposition"]
+    assert ".csv" in r.headers["content-disposition"]
+
+    body_text = r.text
+    first_line = body_text.splitlines()[0]
+    assert first_line.startswith("#"), f"Expected comment header, got: {first_line!r}"

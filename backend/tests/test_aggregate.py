@@ -5,7 +5,11 @@ import respx
 
 from nexttrack.lastfm.client import BASE_URL, LastfmClient
 from nexttrack.models import Candidate, SeedProfile, StageEvent, TagCount, Track
-from nexttrack.pipeline.aggregate import aggregate, aggregate_streaming, build_seed_profile
+from nexttrack.pipeline.aggregate import (
+    aggregate,
+    aggregate_streaming,
+    build_seed_profile,
+)
 
 API_KEY = "test_key"
 
@@ -13,9 +17,8 @@ API_KEY = "test_key"
 # Fixturing
 # ---------------------------------------------------------------------------
 
-def _similar_track(
-    name: str, artist: str, match: float, playcount: int
-) -> dict:
+
+def _similar_track(name: str, artist: str, match: float, playcount: int) -> dict:
     return {
         "name": name,
         "artist": {"name": artist, "url": ""},
@@ -103,31 +106,81 @@ SEED_B = Track(artist="Dr. Dog", title="Shadow People")
 @respx.mock
 async def test_two_seed_overlap():
     # getSimilar
-    _route("track.getSimilar", "Radiohead", "Pyramid Song", _similar_response([
-        _similar_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
-        _similar_track("Teardrop",  "Massive Attack", match=0.7, playcount=8_000_000),
-    ]))
-    _route("track.getSimilar", "Dr. Dog", "Shadow People", _similar_response([
-        _similar_track("Glory Box", "Portishead", match=0.6, playcount=5_000_000),
-        _similar_track("Pink Moon", "Nick Drake",  match=0.5, playcount=2_000_000),
-    ]))
+    _route(
+        "track.getSimilar",
+        "Radiohead",
+        "Pyramid Song",
+        _similar_response(
+            [
+                _similar_track(
+                    "Glory Box", "Portishead", match=0.9, playcount=5_000_000
+                ),
+                _similar_track(
+                    "Teardrop", "Massive Attack", match=0.7, playcount=8_000_000
+                ),
+            ]
+        ),
+    )
+    _route(
+        "track.getSimilar",
+        "Dr. Dog",
+        "Shadow People",
+        _similar_response(
+            [
+                _similar_track(
+                    "Glory Box", "Portishead", match=0.6, playcount=5_000_000
+                ),
+                _similar_track(
+                    "Pink Moon", "Nick Drake", match=0.5, playcount=2_000_000
+                ),
+            ]
+        ),
+    )
 
     # getTopTags (seeds)
-    _route("track.getTopTags", "Radiohead", "Pyramid Song",
-           _tags_response("Radiohead", "Pyramid Song", [("alternative", 100), ("art rock", 50)]))
-    _route("track.getTopTags", "Dr. Dog", "Shadow People",
-           _tags_response("Dr. Dog", "Shadow People", [("alternative", 80), ("folk", 40)]))
+    _route(
+        "track.getTopTags",
+        "Radiohead",
+        "Pyramid Song",
+        _tags_response(
+            "Radiohead", "Pyramid Song", [("alternative", 100), ("art rock", 50)]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        "Dr. Dog",
+        "Shadow People",
+        _tags_response("Dr. Dog", "Shadow People", [("alternative", 80), ("folk", 40)]),
+    )
 
     # getTopTags candidates
-    _route("track.getTopTags", "Portishead", "Glory Box",
-           _tags_response("Portishead", "Glory Box", [("trip-hop", 100), ("alternative", 60)]))
-    _route("track.getTopTags", "Massive Attack", "Teardrop",
-           _tags_response("Massive Attack", "Teardrop", [("trip-hop", 90), ("electronic", 70)]))
-    _route("track.getTopTags", "Nick Drake", "Pink Moon",
-           _tags_response("Nick Drake", "Pink Moon", [("folk", 80), ("acoustic", 50)]))
+    _route(
+        "track.getTopTags",
+        "Portishead",
+        "Glory Box",
+        _tags_response(
+            "Portishead", "Glory Box", [("trip-hop", 100), ("alternative", 60)]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        "Massive Attack",
+        "Teardrop",
+        _tags_response(
+            "Massive Attack", "Teardrop", [("trip-hop", 90), ("electronic", 70)]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        "Nick Drake",
+        "Pink Moon",
+        _tags_response("Nick Drake", "Pink Moon", [("folk", 80), ("acoustic", 50)]),
+    )
 
     async with httpx.AsyncClient() as client:
-        candidates, dropped = await aggregate(LastfmClient(client, API_KEY), [SEED_A, SEED_B])
+        candidates, dropped = await aggregate(
+            LastfmClient(client, API_KEY), [SEED_A, SEED_B]
+        )
 
     assert dropped == []
     # should be only three unique candidates after dedup
@@ -137,7 +190,7 @@ async def test_two_seed_overlap():
     # Glory Box is the overlap from both seeds
     gb = by_title["Glory Box"]
     assert gb.artist == "Portishead"
-    assert gb.summed_similarity == pytest.approx(1.5)          # 0.9 + 0.6
+    assert gb.summed_similarity == pytest.approx(1.5)  # 0.9 + 0.6
     assert set(gb.contributing_seeds) == {
         "Radiohead/Pyramid Song",
         "Dr. Dog/Shadow People",
@@ -156,7 +209,9 @@ async def test_two_seed_overlap():
     assert td.matched_tags == []
     assert td.tag_overlap == pytest.approx(0.0)
     assert td.novelty_bonus == pytest.approx(0.0)  # confirm max playcount
-    assert td.explanation == ["top seed: Radiohead/Pyramid Song"]  # no matched tags line
+    assert td.explanation == [
+        "top seed: Radiohead/Pyramid Song"
+    ]  # no matched tags line
 
     # --- Pink Moon: single seed, one tag match ---
     pm = by_title["Pink Moon"]
@@ -164,32 +219,67 @@ async def test_two_seed_overlap():
     assert pm.contributing_seeds == ["Dr. Dog/Shadow People"]
     assert pm.matched_tags == ["folk"]
     assert pm.tag_overlap == pytest.approx(1 / 3)
-    assert pm.novelty_bonus == pytest.approx(0.75)             # 1 - 2M/8M
+    assert pm.novelty_bonus == pytest.approx(0.75)  # 1 - 2M/8M
     assert pm.explanation == ["top seed: Dr. Dog/Shadow People", "matched tags: folk"]
 
 
 @respx.mock
 async def test_case_insensitive_dedup():
-    #Same track with different exact spelling from two seeds still need to merge to one
-    _route("track.getSimilar", "Radiohead", "Pyramid Song", _similar_response([
-        _similar_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
-    ]))
-    _route("track.getSimilar", "Dr. Dog", "Shadow People", _similar_response([
-        _similar_track("glory box", "portishead", match=0.6, playcount=5_000_000),
-    ]))
-    _route("track.getTopTags", "Radiohead", "Pyramid Song",
-           _tags_response("Radiohead", "Pyramid Song", [("alternative", 100)]))
+    # Same track with different exact spelling from two seeds still need to merge to one
+    _route(
+        "track.getSimilar",
+        "Radiohead",
+        "Pyramid Song",
+        _similar_response(
+            [
+                _similar_track(
+                    "Glory Box", "Portishead", match=0.9, playcount=5_000_000
+                ),
+            ]
+        ),
+    )
+    _route(
+        "track.getSimilar",
+        "Dr. Dog",
+        "Shadow People",
+        _similar_response(
+            [
+                _similar_track(
+                    "glory box", "portishead", match=0.6, playcount=5_000_000
+                ),
+            ]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        "Radiohead",
+        "Pyramid Song",
+        _tags_response("Radiohead", "Pyramid Song", [("alternative", 100)]),
+    )
     # Dr. Dog track tags are empty should triggers artist.getTopTags fallback
-    _route("track.getTopTags", "Dr. Dog", "Shadow People",
-           _tags_response("Dr. Dog", "Shadow People", []))
-    _artist_route("artist.getTopTags", "Dr. Dog",
-                  _artist_tags_response("Dr. Dog", [("indie rock", 60)]))
+    _route(
+        "track.getTopTags",
+        "Dr. Dog",
+        "Shadow People",
+        _tags_response("Dr. Dog", "Shadow People", []),
+    )
+    _artist_route(
+        "artist.getTopTags",
+        "Dr. Dog",
+        _artist_tags_response("Dr. Dog", [("indie rock", 60)]),
+    )
     # Only one candidate tag call because Glory Box deduplicates
-    _route("track.getTopTags", "Portishead", "Glory Box",
-           _tags_response("Portishead", "Glory Box", [("alternative", 60)]))
+    _route(
+        "track.getTopTags",
+        "Portishead",
+        "Glory Box",
+        _tags_response("Portishead", "Glory Box", [("alternative", 60)]),
+    )
 
     async with httpx.AsyncClient() as client:
-        candidates, dropped = await aggregate(LastfmClient(client, API_KEY), [SEED_A, SEED_B])
+        candidates, dropped = await aggregate(
+            LastfmClient(client, API_KEY), [SEED_A, SEED_B]
+        )
 
     assert dropped == []
     assert len(candidates) == 1
@@ -199,26 +289,40 @@ async def test_case_insensitive_dedup():
 # Fallback explanation
 # ---------------------------------------------------------------------------
 
+
 @respx.mock
 async def test_fallback_seed_explanation_populated():
     # if track.getSimilar is empty for a seed, the artist fallback fires and needs to populate explantion
     seed = Track(artist="Dr. Dog", title="Shadow People")
 
     # track.getSimilar empty -> triggers artist.getSimilar + artist.getTopTracks
-    _route("track.getSimilar", "Dr. Dog", "Shadow People",
-           _similar_response([]))
-    _artist_route("artist.getSimilar", "Dr. Dog",
-                  _artist_similar_response([("Blitzen Trapper", 0.75)]))
-    _artist_route("artist.getTopTracks", "Blitzen Trapper",
-                  _artist_top_tracks_response([("Furr", 1_000_000)]))
+    _route("track.getSimilar", "Dr. Dog", "Shadow People", _similar_response([]))
+    _artist_route(
+        "artist.getSimilar",
+        "Dr. Dog",
+        _artist_similar_response([("Blitzen Trapper", 0.75)]),
+    )
+    _artist_route(
+        "artist.getTopTracks",
+        "Blitzen Trapper",
+        _artist_top_tracks_response([("Furr", 1_000_000)]),
+    )
 
     # Seed tags present -> no tag fallback for seed
-    _route("track.getTopTags", "Dr. Dog", "Shadow People",
-           _tags_response("Dr. Dog", "Shadow People", [("indie rock", 80)]))
+    _route(
+        "track.getTopTags",
+        "Dr. Dog",
+        "Shadow People",
+        _tags_response("Dr. Dog", "Shadow People", [("indie rock", 80)]),
+    )
 
     # Candidate (Blitzen Trapper / Furr) tag lookup
-    _route("track.getTopTags", "Blitzen Trapper", "Furr",
-           _tags_response("Blitzen Trapper", "Furr", [("indie rock", 50), ("folk", 30)]))
+    _route(
+        "track.getTopTags",
+        "Blitzen Trapper",
+        "Furr",
+        _tags_response("Blitzen Trapper", "Furr", [("indie rock", 50), ("folk", 30)]),
+    )
 
     async with httpx.AsyncClient() as client:
         candidates, dropped = await aggregate(LastfmClient(client, API_KEY), [seed])
@@ -228,7 +332,7 @@ async def test_fallback_seed_explanation_populated():
     furr = candidates[0]
     assert furr.artist == "Blitzen Trapper"
     assert furr.title == "Furr"
-    assert furr.matched_tags == ["indie rock"]         # intersects seed tag profile
+    assert furr.matched_tags == ["indie rock"]  # intersects seed tag profile
     assert furr.explanation[0] == "top seed: Dr. Dog/Shadow People"
     assert furr.explanation[1] == "matched tags: indie rock"
     assert any("artist.getSimilar" in note for note in furr.explanation)
@@ -236,14 +340,31 @@ async def test_fallback_seed_explanation_populated():
 
 @respx.mock
 async def test_primary_seed_has_correct_explanation():
-    #Candidates from a seed that used only primary routes have explanation=[].
-    _route("track.getSimilar", "Radiohead", "Pyramid Song", _similar_response([
-        _similar_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
-    ]))
-    _route("track.getTopTags", "Radiohead", "Pyramid Song",
-           _tags_response("Radiohead", "Pyramid Song", [("alternative", 100)]))
-    _route("track.getTopTags", "Portishead", "Glory Box",
-           _tags_response("Portishead", "Glory Box", [("alternative", 60)]))
+    # Candidates from a seed that used only primary routes have explanation=[].
+    _route(
+        "track.getSimilar",
+        "Radiohead",
+        "Pyramid Song",
+        _similar_response(
+            [
+                _similar_track(
+                    "Glory Box", "Portishead", match=0.9, playcount=5_000_000
+                ),
+            ]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        "Radiohead",
+        "Pyramid Song",
+        _tags_response("Radiohead", "Pyramid Song", [("alternative", 100)]),
+    )
+    _route(
+        "track.getTopTags",
+        "Portishead",
+        "Glory Box",
+        _tags_response("Portishead", "Glory Box", [("alternative", 60)]),
+    )
 
     async with httpx.AsyncClient() as client:
         candidates, dropped = await aggregate(LastfmClient(client, API_KEY), [SEED_A])
@@ -258,6 +379,7 @@ async def test_primary_seed_has_correct_explanation():
 # Fallback B — dropped seeds (req 2.07)
 # ---------------------------------------------------------------------------
 
+
 @respx.mock
 async def test_fallback_b_seed_dropped_when_both_routes_empty():
     """
@@ -270,33 +392,51 @@ async def test_fallback_b_seed_dropped_when_both_routes_empty():
     # Primary track.getSimilar empty -> triggers artist fallback
     _route("track.getSimilar", "Zxqvbw", "Ploknmf", _similar_response([]))
     # Fallback A: artist.getSimilar also empty -> Fallback B fires
-    _artist_route("artist.getSimilar", "Zxqvbw",
-                  _artist_similar_response([]))
+    _artist_route("artist.getSimilar", "Zxqvbw", _artist_similar_response([]))
 
     async with httpx.AsyncClient() as client:
         candidates, dropped = await aggregate(LastfmClient(client, API_KEY), [seed])
 
-    assert dropped == [seed_key] #confirm seed number dropped
-    assert candidates == [] #confirm 0 candidates with zero seeds.
+    assert dropped == [seed_key]  # confirm seed number dropped
+    assert candidates == []  # confirm 0 candidates with zero seeds.
 
 
 @respx.mock
 async def test_fallback_b_mixed_seeds_only_bad_one_dropped():
-# tst one good seed and one nonsense seed, only the nonsense seed is dropped; the good seed still produces.
+    # tst one good seed and one nonsense seed, only the nonsense seed is dropped; the good seed still produces.
     good_seed = Track(artist="Radiohead", title="Pyramid Song")
-    bad_seed  = Track(artist="Zxqvbw",   title="Ploknmf")
+    bad_seed = Track(artist="Zxqvbw", title="Ploknmf")
 
     # Good seed: primary route succeeds
-    _route("track.getSimilar", "Radiohead", "Pyramid Song", _similar_response([
-        _similar_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
-    ]))
-    _route("track.getTopTags", "Radiohead", "Pyramid Song",
-           _tags_response("Radiohead", "Pyramid Song", [("alternative", 100)]))
-    _route("track.getTopTags", "Portishead", "Glory Box",
-           _tags_response("Portishead", "Glory Box", [("alternative", 60)]))
+    _route(
+        "track.getSimilar",
+        "Radiohead",
+        "Pyramid Song",
+        _similar_response(
+            [
+                _similar_track(
+                    "Glory Box", "Portishead", match=0.9, playcount=5_000_000
+                ),
+            ]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        "Radiohead",
+        "Pyramid Song",
+        _tags_response("Radiohead", "Pyramid Song", [("alternative", 100)]),
+    )
+    _route(
+        "track.getTopTags",
+        "Portishead",
+        "Glory Box",
+        _tags_response("Portishead", "Glory Box", [("alternative", 60)]),
+    )
 
     # Bad seed: both track and artist routes return nothing
-    _route("track.getSimilar", "Zxqvbw", "Ploknmf", _similar_response([])) #dummy giberish
+    _route(
+        "track.getSimilar", "Zxqvbw", "Ploknmf", _similar_response([])
+    )  # dummy giberish
     _artist_route("artist.getSimilar", "Zxqvbw", _artist_similar_response([]))
 
     async with httpx.AsyncClient() as client:
@@ -304,41 +444,92 @@ async def test_fallback_b_mixed_seeds_only_bad_one_dropped():
             LastfmClient(client, API_KEY), [good_seed, bad_seed]
         )
 
-    assert dropped == ["Zxqvbw/Ploknmf"] #confirm dropped seed
-    assert len(candidates) == 1 #confirm only one track (defined above) remains
-    assert candidates[0].title == "Glory Box" #confirm title
+    assert dropped == ["Zxqvbw/Ploknmf"]  # confirm dropped seed
+    assert len(candidates) == 1  # confirm only one track (defined above) remains
+    assert candidates[0].title == "Glory Box"  # confirm title
 
 
 # Streaming variant
 # ---------------------------------------------------------------------------
 
+
 @respx.mock
 async def test_aggregate_streaming_event_ordering():
     # Two-seed setup matching test_two_seed_overlap
-    _route("track.getSimilar", "Radiohead", "Pyramid Song", _similar_response([
-        _similar_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
-        _similar_track("Teardrop", "Massive Attack", match=0.7, playcount=8_000_000),
-    ]))
-    _route("track.getSimilar", "Dr. Dog", "Shadow People", _similar_response([
-        _similar_track("Glory Box", "Portishead", match=0.6, playcount=5_000_000),
-        _similar_track("Pink Moon", "Nick Drake", match=0.5, playcount=2_000_000),
-    ]))
-    _route("track.getTopTags", "Radiohead", "Pyramid Song",
-           _tags_response("Radiohead", "Pyramid Song", [("alternative", 100), ("art rock", 50)]))
-    _route("track.getTopTags", "Dr. Dog", "Shadow People",
-           _tags_response("Dr. Dog", "Shadow People", [("alternative", 80), ("folk", 40)]))
-    _route("track.getTopTags", "Portishead", "Glory Box",
-           _tags_response("Portishead", "Glory Box", [("trip-hop", 100), ("alternative", 60)]))
-    _route("track.getTopTags", "Massive Attack", "Teardrop",
-           _tags_response("Massive Attack", "Teardrop", [("trip-hop", 90), ("electronic", 70)]))
-    _route("track.getTopTags", "Nick Drake", "Pink Moon",
-           _tags_response("Nick Drake", "Pink Moon", [("folk", 80), ("acoustic", 50)]))
+    _route(
+        "track.getSimilar",
+        "Radiohead",
+        "Pyramid Song",
+        _similar_response(
+            [
+                _similar_track(
+                    "Glory Box", "Portishead", match=0.9, playcount=5_000_000
+                ),
+                _similar_track(
+                    "Teardrop", "Massive Attack", match=0.7, playcount=8_000_000
+                ),
+            ]
+        ),
+    )
+    _route(
+        "track.getSimilar",
+        "Dr. Dog",
+        "Shadow People",
+        _similar_response(
+            [
+                _similar_track(
+                    "Glory Box", "Portishead", match=0.6, playcount=5_000_000
+                ),
+                _similar_track(
+                    "Pink Moon", "Nick Drake", match=0.5, playcount=2_000_000
+                ),
+            ]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        "Radiohead",
+        "Pyramid Song",
+        _tags_response(
+            "Radiohead", "Pyramid Song", [("alternative", 100), ("art rock", 50)]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        "Dr. Dog",
+        "Shadow People",
+        _tags_response("Dr. Dog", "Shadow People", [("alternative", 80), ("folk", 40)]),
+    )
+    _route(
+        "track.getTopTags",
+        "Portishead",
+        "Glory Box",
+        _tags_response(
+            "Portishead", "Glory Box", [("trip-hop", 100), ("alternative", 60)]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        "Massive Attack",
+        "Teardrop",
+        _tags_response(
+            "Massive Attack", "Teardrop", [("trip-hop", 90), ("electronic", 70)]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        "Nick Drake",
+        "Pink Moon",
+        _tags_response("Nick Drake", "Pink Moon", [("folk", 80), ("acoustic", 50)]),
+    )
 
     events: list[StageEvent] = []
     final: tuple[list[Candidate], list[str]] | None = None
 
     async with httpx.AsyncClient() as client:
-        async for item in aggregate_streaming(LastfmClient(client, API_KEY), [SEED_A, SEED_B]):
+        async for item in aggregate_streaming(
+            LastfmClient(client, API_KEY), [SEED_A, SEED_B]
+        ):
             if isinstance(item, StageEvent):
                 events.append(item)
             else:
@@ -374,23 +565,54 @@ async def test_aggregate_streaming_event_ordering():
 # build_seed_profile
 # ---------------------------------------------------------------------------
 
+
 @respx.mock
 async def test_build_seed_profile_shared_tag_has_seed_count_two() -> None:
     # Two seeds sharing "alternative"; each also contributes one unique tag.
     # Shared tag must sort first (seed_count=2); unique tags follow alphabetically.
-    _route("track.getSimilar", "Radiohead", "Pyramid Song", _similar_response([
-        _similar_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
-    ]))
-    _route("track.getSimilar", "Dr. Dog", "Shadow People", _similar_response([
-        _similar_track("Pink Moon", "Nick Drake", match=0.5, playcount=2_000_000),
-    ]))
-    _route("track.getTopTags", "Radiohead", "Pyramid Song",
-           _tags_response("Radiohead", "Pyramid Song", [("alternative", 100), ("art rock", 50)]))
-    _route("track.getTopTags", "Dr. Dog", "Shadow People",
-           _tags_response("Dr. Dog", "Shadow People", [("alternative", 80), ("folk", 40)]))
+    _route(
+        "track.getSimilar",
+        "Radiohead",
+        "Pyramid Song",
+        _similar_response(
+            [
+                _similar_track(
+                    "Glory Box", "Portishead", match=0.9, playcount=5_000_000
+                ),
+            ]
+        ),
+    )
+    _route(
+        "track.getSimilar",
+        "Dr. Dog",
+        "Shadow People",
+        _similar_response(
+            [
+                _similar_track(
+                    "Pink Moon", "Nick Drake", match=0.5, playcount=2_000_000
+                ),
+            ]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        "Radiohead",
+        "Pyramid Song",
+        _tags_response(
+            "Radiohead", "Pyramid Song", [("alternative", 100), ("art rock", 50)]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        "Dr. Dog",
+        "Shadow People",
+        _tags_response("Dr. Dog", "Shadow People", [("alternative", 80), ("folk", 40)]),
+    )
 
     async with httpx.AsyncClient() as client:
-        profile = await build_seed_profile(LastfmClient(client, API_KEY), [SEED_A, SEED_B])
+        profile = await build_seed_profile(
+            LastfmClient(client, API_KEY), [SEED_A, SEED_B]
+        )
 
     assert isinstance(profile, SeedProfile)
     assert profile.total_seeds == 2
@@ -413,13 +635,26 @@ async def test_build_seed_profile_fallback_b_seed_dropped() -> None:
     # It must appear in dropped_seeds, contribute no tags, and total_seeds
     # must reflect the original input count rather than the post-drop count.
     good_seed = Track(artist="Radiohead", title="Pyramid Song")
-    bad_seed  = Track(artist="Zxqvbw",   title="Ploknmf")
+    bad_seed = Track(artist="Zxqvbw", title="Ploknmf")
 
-    _route("track.getSimilar", "Radiohead", "Pyramid Song", _similar_response([
-        _similar_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
-    ]))
-    _route("track.getTopTags", "Radiohead", "Pyramid Song",
-           _tags_response("Radiohead", "Pyramid Song", [("alternative", 100)]))
+    _route(
+        "track.getSimilar",
+        "Radiohead",
+        "Pyramid Song",
+        _similar_response(
+            [
+                _similar_track(
+                    "Glory Box", "Portishead", match=0.9, playcount=5_000_000
+                ),
+            ]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        "Radiohead",
+        "Pyramid Song",
+        _tags_response("Radiohead", "Pyramid Song", [("alternative", 100)]),
+    )
 
     _route("track.getSimilar", "Zxqvbw", "Ploknmf", _similar_response([]))
     _artist_route("artist.getSimilar", "Zxqvbw", _artist_similar_response([]))
@@ -430,7 +665,7 @@ async def test_build_seed_profile_fallback_b_seed_dropped() -> None:
         )
 
     assert profile.dropped_seeds == ["Zxqvbw/Ploknmf"]
-    assert profile.total_seeds == 2        # original input, not post-drop count
+    assert profile.total_seeds == 2  # original input, not post-drop count
     assert len(profile.tags) == 1
     assert profile.tags[0] == TagCount(name="alternative", seed_count=1)
 
@@ -439,19 +674,47 @@ async def test_build_seed_profile_fallback_b_seed_dropped() -> None:
 async def test_build_seed_profile_all_succeed_dropped_seeds_empty() -> None:
     # When every seed resolves successfully, dropped_seeds is empty and
     # total_seeds matches the input length exactly.
-    _route("track.getSimilar", "Radiohead", "Pyramid Song", _similar_response([
-        _similar_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
-    ]))
-    _route("track.getSimilar", "Dr. Dog", "Shadow People", _similar_response([
-        _similar_track("Pink Moon", "Nick Drake", match=0.5, playcount=2_000_000),
-    ]))
-    _route("track.getTopTags", "Radiohead", "Pyramid Song",
-           _tags_response("Radiohead", "Pyramid Song", [("alternative", 100)]))
-    _route("track.getTopTags", "Dr. Dog", "Shadow People",
-           _tags_response("Dr. Dog", "Shadow People", [("indie rock", 80)]))
+    _route(
+        "track.getSimilar",
+        "Radiohead",
+        "Pyramid Song",
+        _similar_response(
+            [
+                _similar_track(
+                    "Glory Box", "Portishead", match=0.9, playcount=5_000_000
+                ),
+            ]
+        ),
+    )
+    _route(
+        "track.getSimilar",
+        "Dr. Dog",
+        "Shadow People",
+        _similar_response(
+            [
+                _similar_track(
+                    "Pink Moon", "Nick Drake", match=0.5, playcount=2_000_000
+                ),
+            ]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        "Radiohead",
+        "Pyramid Song",
+        _tags_response("Radiohead", "Pyramid Song", [("alternative", 100)]),
+    )
+    _route(
+        "track.getTopTags",
+        "Dr. Dog",
+        "Shadow People",
+        _tags_response("Dr. Dog", "Shadow People", [("indie rock", 80)]),
+    )
 
     async with httpx.AsyncClient() as client:
-        profile = await build_seed_profile(LastfmClient(client, API_KEY), [SEED_A, SEED_B])
+        profile = await build_seed_profile(
+            LastfmClient(client, API_KEY), [SEED_A, SEED_B]
+        )
 
     assert profile.dropped_seeds == []
     assert profile.total_seeds == 2

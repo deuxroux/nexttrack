@@ -1,7 +1,12 @@
 import pytest
 from pydantic import ValidationError
 
-from nexttrack.models import Candidate, RecommendationParams, RecommendationResult, Track
+from nexttrack.models import (
+    Candidate,
+    RecommendationParams,
+    RecommendationResult,
+    Track,
+)
 
 
 def test_track_shape():
@@ -10,7 +15,7 @@ def test_track_shape():
     assert t.title == "Pyramid Song"
 
 
-#confirm data type matches model with simple artist check. manually verified response.
+# confirm data type matches model with simple artist check. manually verified response.
 def test_recommendation_result_shape():
     c = Candidate(
         artist="Portishead",
@@ -22,7 +27,9 @@ def test_recommendation_result_shape():
         contributing_seeds=["Radiohead/Pyramid Song"],
         matched_tags=["trip-hop"],
     )
-    params = RecommendationParams(novelty=50, genre_lock=[], artist_diversity=3, length=10)
+    params = RecommendationParams(
+        novelty=50, genre_lock=[], artist_diversity=3, length=10
+    )
     r = RecommendationResult(candidates=[c], dropped_seeds=[], params=params)
     assert len(r.candidates) == 1
     assert r.candidates[0].artist == "Portishead"
@@ -35,14 +42,17 @@ def test_recommendation_params_defaults():
     assert p.length == 10
 
 
-@pytest.mark.parametrize("field,value", [
-    ("artist_diversity", 0),   # below ge=1
-    ("artist_diversity", 11),  # above le=10
-    ("length", 4),             # below ge=5
-    ("length", 51),            # above le=50
-    ("novelty", -1),           # below ge=0
-    ("novelty", 101),          # above le=100
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("artist_diversity", 0),  # below ge=1
+        ("artist_diversity", 11),  # above le=10
+        ("length", 4),  # below ge=5
+        ("length", 51),  # above le=50
+        ("novelty", -1),  # below ge=0
+        ("novelty", 101),  # above le=100
+    ],
+)
 def test_recommendation_params_rejects_out_of_range(field: str, value: int) -> None:
     valid: dict = dict(novelty=50, artist_diversity=5, length=10)
     with pytest.raises(ValidationError):

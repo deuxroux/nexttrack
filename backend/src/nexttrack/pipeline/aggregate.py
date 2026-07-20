@@ -58,12 +58,12 @@ async def aggregate_streaming(
                     "title": t["name"],
                     "summed_similarity": 0.0,
                     "playcount": t["playcount"],
-                    "seed_matches": {},   # seed_key -> accumulated match score
+                    "seed_matches": {},  # seed_key -> accumulated match score
                 }
             pool[key]["summed_similarity"] += float(t["match"])
-            pool[key]["seed_matches"][seed_key] = (
-                pool[key]["seed_matches"].get(seed_key, 0.0) + float(t["match"])
-            )
+            pool[key]["seed_matches"][seed_key] = pool[key]["seed_matches"].get(
+                seed_key, 0.0
+            ) + float(t["match"])
 
     yield StageEvent(stage="tags", candidates=len(pool))
 
@@ -144,7 +144,9 @@ async def build_seed_profile(lf: LastfmClient, seeds: list[Track]) -> SeedProfil
     )
 
 
-async def aggregate(lf: LastfmClient, seeds: list[Track]) -> tuple[list[Candidate], list[str]]:
+async def aggregate(
+    lf: LastfmClient, seeds: list[Track]
+) -> tuple[list[Candidate], list[str]]:
     candidates: list[Candidate] = []
     dropped: list[str] = []
     async for item in aggregate_streaming(lf, seeds):

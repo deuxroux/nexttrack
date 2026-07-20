@@ -33,8 +33,10 @@ async def main() -> None:
         raise SystemExit("LASTFM_API_KEY not set — add it to backend/.env")
 
     print(f"Seeds: {', '.join(f'{s.artist} / {s.title}' for s in SEEDS)}")
-    print(f"Params: novelty={PARAMS.novelty} genre_lock={PARAMS.genre_lock} "
-          f"diversity={PARAMS.artist_diversity} length={PARAMS.length}\n")
+    print(
+        f"Params: novelty={PARAMS.novelty} genre_lock={PARAMS.genre_lock} "
+        f"diversity={PARAMS.artist_diversity} length={PARAMS.length}\n"
+    )
 
     async with httpx.AsyncClient(timeout=15.0) as client:
         lf = LastfmClient(client, api_key)
@@ -57,6 +59,7 @@ async def main() -> None:
             f"seeds: {', '.join(c.contributing_seeds)}\n"
             f"tags: {tags}"
         )
+
 
 if __name__ == "__main__":
     asyncio.run(main())

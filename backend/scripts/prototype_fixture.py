@@ -15,7 +15,7 @@ FIXTURES_DIR = Path(__file__).parent.parent / "tests" / "fixtures"
 
 
 SEEDS = [
-    {"artist": "Radiohead","title": "Pyramid Song"},
+    {"artist": "Radiohead", "title": "Pyramid Song"},
     {"artist": "Dr. Dog", "title": "Shadow People"},
     {"artist": "Death Cab for Cutie", "title": "Title and Registration"},
     {"artist": "Massive Attack", "title": "Teardrop"},
@@ -25,8 +25,13 @@ SEEDS = [
 async def fetch(client: httpx.AsyncClient, method: str, params: dict) -> dict:
     response = await client.get(
         BASE_URL,
-        params={"method": method, "api_key": API_KEY, "format": "json",
-                "autocorrect": "1", **params},
+        params={
+            "method": method,
+            "api_key": API_KEY,
+            "format": "json",
+            "autocorrect": "1",
+            **params,
+        },
         headers={"User-Agent": "NextTrack/0.1 erasalav@gmail.com"},
     )
     response.raise_for_status()
@@ -37,16 +42,18 @@ async def capture_seed(client: httpx.AsyncClient, artist: str, title: str) -> No
     slug = f"{artist.lower().replace(' ', '_')}__{title.lower().replace(' ', '_')}"
 
     # track.getSimilar
-    similar = await fetch(client, "track.getSimilar",
-                          {"artist": artist, "track": title, "limit": 50})
+    similar = await fetch(
+        client, "track.getSimilar", {"artist": artist, "track": title, "limit": 50}
+    )
     out_similar = FIXTURES_DIR / f"get_similar__{slug}.json"
     out_similar.write_text(json.dumps(similar, indent=2))
     track_count = len(similar.get("similartracks", {}).get("track", []))
-    print(f"  getSimilar  [{artist} / {title}] → {track_count} tracks → {out_similar.name}")
+    print(
+        f"  getSimilar  [{artist} / {title}] → {track_count} tracks → {out_similar.name}"
+    )
 
     # track.getTopTags
-    tags = await fetch(client, "track.getTopTags",
-                       {"artist": artist, "track": title})
+    tags = await fetch(client, "track.getTopTags", {"artist": artist, "track": title})
     out_tags = FIXTURES_DIR / f"get_top_tags__{slug}.json"
     out_tags.write_text(json.dumps(tags, indent=2))
     tag_count = len(tags.get("toptags", {}).get("tag", []))
