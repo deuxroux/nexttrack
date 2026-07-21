@@ -12,7 +12,8 @@ def _spotify_search_url(artist: str, title: str) -> str:
         f"{quote(artist, safe='')}%20{quote(title, safe='')}"
     )
 
-#Can add more of these. start with just spotify and apple music.
+
+# Can add more of these. start with just spotify and apple music.
 def _apple_music_search_url(artist: str, title: str) -> str:
     return (
         f"https://music.apple.com/us/search?term={quote(artist + ' ' + title, safe='')}"

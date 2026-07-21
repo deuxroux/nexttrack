@@ -55,7 +55,7 @@ class SpotifyClient:
         return self._access_token
 
     async def get_track(self, track_id: str) -> dict:
-        #Return the Spotify track object for track_id.
+        # Return the Spotify track object for track_id.
         # Raises SpotifyUnavailable network/auth/server errors, also bad track.
         key = f"spotify:v1:track:{track_id}"
         cached = await self._cache.get(key)

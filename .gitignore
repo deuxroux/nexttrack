@@ -12,7 +12,7 @@ backend/scripts/capture_fixtures.py
 dist/
 build/
 *.egg-info/
-
+.hypothesis
 .coverage
 htmlcov/
 

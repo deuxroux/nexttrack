@@ -1,6 +1,5 @@
-#THIS SUITE: prove statelessness. no endpoint must ever emit a Set-Cookie header.
+# THIS SUITE: prove statelessness. no endpoint must ever emit a Set-Cookie header.
 # Each route is hit with a minimal payload-- checking no cookie is set.
-
 
 import pytest
 import httpx

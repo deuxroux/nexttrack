@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
@@ -20,14 +21,13 @@ from nexttrack.models import (
     StageEvent,
     Track,
 )
-from nexttrack.pipeline.aggregate import (
-    aggregate,
-    aggregate_streaming,
-    build_seed_profile,
-)
+from nexttrack.observability.timing import StageTimings
+from nexttrack.pipeline.aggregate import aggregate_streaming, build_seed_profile
 from nexttrack.pipeline.rank import rank
 from nexttrack.spotify.client import SpotifyClient, SpotifyUnavailable
 from nexttrack.spotify.url import parse_track_id
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -51,6 +51,7 @@ async def lifespan(app: FastAPI):
     app.state.cache = cache
     app.state.spotify_cache = spotify_cache
     app.state.spotify = spotify
+    app.state.stage_timings = StageTimings()
     try:
         yield
     finally:
@@ -96,12 +97,14 @@ async def health() -> dict[str, str]:
 @app.get("/metrics")
 async def metrics(req: Request) -> dict:
     cache: LastfmCache = req.app.state.cache
+    stage_timings: StageTimings = req.app.state.stage_timings
     return {
         "cache": {
             "hits": cache.hits,
             "misses": cache.misses,
             "hit_rate": cache.hit_rate,
-        }
+        },
+        "timing": stage_timings.summary(),
     }
 
 
@@ -127,8 +130,23 @@ async def recommend(
     lf = LastfmClient(
         req.app.state.http_client, settings.lastfm_api_key, cache=req.app.state.cache
     )
-    candidates, dropped = await aggregate(lf, body.seeds)
+    stage_timings: StageTimings = req.app.state.stage_timings
+
+    candidates: list[Candidate] = []
+    dropped: list[str] = []
+    per_stage: dict[str, float] = {}
+
+    async for item in aggregate_streaming(lf, body.seeds):
+        if isinstance(item, StageEvent):
+            stage_timings.record(item.stage, item.elapsed_ms)
+            per_stage[item.stage] = per_stage.get(item.stage, 0.0) + item.elapsed_ms
+        else:
+            candidates, dropped = item
+
     result = rank(candidates, dropped, body.params)
+
+    total_ms = sum(per_stage.values())
+    logger.info("recommend complete stage_ms=%s total_ms=%.1f", per_stage, total_ms)
 
     if output_format == "csv":
         filename, csv_body = render_csv(
@@ -149,6 +167,8 @@ async def recommend_stream(
     req: Request,
     settings: Settings = Depends(get_settings),
 ) -> EventSourceResponse:
+    stage_timings: StageTimings = req.app.state.stage_timings
+
     async def _stream():
         candidates: list[Candidate] = []
         dropped: list[str] = []
@@ -157,14 +177,25 @@ async def recommend_stream(
             settings.lastfm_api_key,
             cache=req.app.state.cache,
         )
+        per_stage: dict[str, float] = {}
+
         async for item in aggregate_streaming(lf, body.seeds):
             if isinstance(item, StageEvent):
+                stage_timings.record(item.stage, item.elapsed_ms)
+                per_stage[item.stage] = per_stage.get(item.stage, 0.0) + item.elapsed_ms
                 yield {"event": item.stage, "data": item.model_dump_json()}
                 if await req.is_disconnected():
                     return
             else:
                 candidates, dropped = item
+
         result = rank(candidates, dropped, body.params)
+
+        total_ms = sum(per_stage.values())
+        logger.info(
+            "recommend/stream complete stage_ms=%s total_ms=%.1f", per_stage, total_ms
+        )
+
         yield {"event": "result", "data": result.model_dump_json()}
         yield {"event": "done", "data": "{}"}
 

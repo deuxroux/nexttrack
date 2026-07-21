@@ -1,3 +1,4 @@
+import time
 from collections.abc import AsyncIterator
 
 from nexttrack.lastfm.client import LastfmClient
@@ -18,15 +19,22 @@ async def aggregate_streaming(
     dropped_seeds: list[str] = []
     seeds_total = len(seeds)
 
+    # Phase 1: per-seed similarity + seed-tag lookups
     for i, seed in enumerate(seeds, 1):
         seed_key = f"{seed.artist}/{seed.title}"
+        t0 = time.monotonic()
 
         sim_result = await lf.get_similar_tracks(seed.artist, seed.title)
 
         # Req 2.07 (Fallback B): drop seed if both primary and artist fallback give nothing
         if sim_result.fallback_used and not sim_result.tracks:
             dropped_seeds.append(seed_key)
-            yield StageEvent(stage="similarity", seeds_done=i, seeds_total=seeds_total)
+            yield StageEvent(
+                stage="similarity",
+                seeds_done=i,
+                seeds_total=seeds_total,
+                elapsed_ms=(time.monotonic() - t0) * 1000,
+            )
             continue
 
         seed_tracks[seed_key] = sim_result.tracks
@@ -39,9 +47,15 @@ async def aggregate_streaming(
         for tag in tags_result.tags:
             seed_tag_profile.add(tag["name"])
 
-        yield StageEvent(stage="similarity", seeds_done=i, seeds_total=seeds_total)
+        yield StageEvent(
+            stage="similarity",
+            seeds_done=i,
+            seeds_total=seeds_total,
+            elapsed_ms=(time.monotonic() - t0) * 1000,
+        )
 
     # Phase 2: dedup by normalised (artist, title), summing match scores
+    t0 = time.monotonic()
     seed_norm_keys: set[tuple[str, str]] = {
         _norm_key(seed.artist, seed.title) for seed in seeds
     }
@@ -65,12 +79,12 @@ async def aggregate_streaming(
                 seed_key, 0.0
             ) + float(t["match"])
 
-    yield StageEvent(stage="tags", candidates=len(pool))
-
-    # Phase 3: compute novelty_bonus denominator
+    # Phase 3: fetch candidate top tags; compute matched_tags, tag_overlap,
+    # novelty_bonus, and explanations. Timer started in Phase 2 continues here
+    # so elapsed_ms on the "tags" event covers both dedup and candidate I/O.
     max_playcount = max((e["playcount"] for e in pool.values()), default=1)
+    pool_size = len(pool)
 
-    # Phase 4: fetch candidate top tags; compute matched_tags, tag_overlap, novelty_bonus; explanations if necessary
     candidates: list[Candidate] = []
     for entry in pool.values():
         tags_result = await lf.get_top_tags(entry["artist"], entry["title"])
@@ -110,6 +124,12 @@ async def aggregate_streaming(
             )
         )
 
+    yield StageEvent(
+        stage="tags",
+        candidates=pool_size,
+        elapsed_ms=(time.monotonic() - t0) * 1000,
+    )
+
     yield candidates, dropped_seeds
 
 
@@ -122,7 +142,7 @@ async def build_seed_profile(lf: LastfmClient, seeds: list[Track]) -> SeedProfil
 
         sim_result = await lf.get_similar_tracks(seed.artist, seed.title)
 
-        # Fallback B: both track- and artist-level similarity returned empty — drop seed
+        # Fallback B: both track- and artist-level similarity returned empty -- drop seed
         if sim_result.fallback_used and not sim_result.tracks:
             dropped_seeds.append(seed_key)
             continue

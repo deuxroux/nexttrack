@@ -137,7 +137,6 @@ async def test_double_429_raises_spotify_unavailable():
             await client.get_track(TRACK_ID)
 
 
-
 # check SpotifyUnavailable using mock values for statuses
 # --------------------------------------------------------------------
 

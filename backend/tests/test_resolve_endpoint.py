@@ -1,4 +1,4 @@
-#troubleshooting test suite to confirm all .env tokens that the user populates are working corrextly.
+# troubleshooting test suite to confirm all .env tokens that the user populates are working corrextly.
 
 import pytest
 import httpx
@@ -11,7 +11,7 @@ from asgi_lifespan import LifespanManager
 from nexttrack.api import app
 from nexttrack.config import get_settings
 
-#test fixtures with known results
+# test fixtures with known results
 TRACK_ID = "4iV5W9uYEdYUVa79Axb7Rh"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
 TRACK_URL = f"https://api.spotify.com/v1/tracks/{TRACK_ID}"

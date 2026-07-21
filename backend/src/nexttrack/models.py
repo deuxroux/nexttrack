@@ -34,6 +34,7 @@ class StageEvent(BaseModel):
     seeds_done: int | None = None
     seeds_total: int | None = None
     candidates: int | None = None
+    elapsed_ms: float = 0.0
 
 
 class TagCount(BaseModel):

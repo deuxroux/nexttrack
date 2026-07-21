@@ -13,7 +13,7 @@ from nexttrack.models import (
     Track,
 )
 
-#test fixtures
+# test fixtures
 _NOW = datetime(2026, 7, 12, 14, 30, 0, tzinfo=timezone.utc)
 
 _EXPECTED_COLUMNS = [
@@ -141,6 +141,7 @@ def test_filename_encodes_params():
 # ---------------------------------------------------------------------------
 # Search URLs. Assume spotify and apple music based on current correct search terms.
 
+
 def test_spotify_search_url_populated():
     _, csv_body = render_csv(_result(), _seeds(), _params(), _NOW)
     header, rows = _parse_csv(csv_body)
@@ -162,7 +163,7 @@ def test_apple_music_search_url_populated():
 
 
 def test_search_urls_are_ascii_encoded():
-    #we can't have hanging spaces-- will mess up return url.
+    # we can't have hanging spaces-- will mess up return url.
     params = _params()
     candidate = _candidate(artist="Sigur Ros", title="Ara batur")
     result = RecommendationResult(
@@ -175,6 +176,7 @@ def test_search_urls_are_ascii_encoded():
     row = rows[0]
     assert row[surl_idx].isascii()
     assert row[aurl_idx].isascii()
+
 
 # ---------------------------------------------------------------------------
 # confirm Rank column properly populates sequentially.

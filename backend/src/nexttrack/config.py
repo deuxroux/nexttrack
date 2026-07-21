@@ -14,12 +14,12 @@ class Settings(BaseSettings):
     app_name: str = "NextTrack"
     app_version: str = "0.1"
     redis_url: str = "redis://localhost:6379/0"
-    cache_ttl_lastfm_seconds: int = 14 * 24 * 3600 #days * hours * seconds
+    cache_ttl_lastfm_seconds: int = 14 * 24 * 3600  # days * hours * seconds
 
     #  /resolve-spotify-url returns 503 if either field is empty.
     spotify_client_id: str = ""
     spotify_client_secret: str = ""
-    cache_ttl_spotify_seconds: int = 30 * 24 * 3600 #days * hours * seconds
+    cache_ttl_spotify_seconds: int = 30 * 24 * 3600  # days * hours * seconds
 
     model_config = SettingsConfigDict(env_file=_ENV_FILE, env_file_encoding="utf-8")
 

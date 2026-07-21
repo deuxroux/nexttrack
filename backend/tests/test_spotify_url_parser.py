@@ -1,6 +1,4 @@
-import re
-
-from hypothesis import given, settings as h_settings
+from hypothesis import given
 from hypothesis import strategies as st
 
 from nexttrack.spotify.url import parse_track_id
@@ -27,7 +25,8 @@ def test_spotify_uri():
 # Explicit reject cases
 # ---------------------------------------------------------------------------
 
-#confirm tracks
+
+# confirm tracks
 def test_artist_url_rejected():
     assert parse_track_id(f"https://open.spotify.com/artist/{_SAMPLE_ID}") is None
 
@@ -51,17 +50,21 @@ def test_random_string_rejected():
 def test_empty_string_rejected():
     assert parse_track_id("") is None
 
+
 # IDs must be exactly 22 chars
 def test_short_track_id_rejected():
     assert parse_track_id("https://open.spotify.com/track/shortid") is None
 
 
 def test_long_track_id_rejected():
-    assert parse_track_id(f"https://open.spotify.com/track/{_SAMPLE_ID}moreChars") is None
+    assert (
+        parse_track_id(f"https://open.spotify.com/track/{_SAMPLE_ID}moreChars") is None
+    )
 
 
 # Hypothesis property tests for bounds
 # -------------------------------------------------------------------
+
 
 @given(
     track_id=_valid_id,
@@ -70,6 +73,7 @@ def test_long_track_id_rejected():
 def test_intl_url_roundtrips(track_id: str, locale: str) -> None:
     url = f"https://open.spotify.com/{locale}/track/{track_id}"
     assert parse_track_id(url) == track_id
+
 
 @given(track_id=_valid_id)
 def test_spotify_uri_roundtrips(track_id: str) -> None:
