@@ -781,6 +781,94 @@ async def test_metrics_endpoint() -> None:
 
 
 @respx.mock
+async def test_recommend_lastfm_outage_returns_502() -> None:
+    respx.get(BASE_URL).mock(side_effect=httpx.ConnectError("connection refused"))
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        r = await ac.post(
+            "/recommend",
+            json={
+                "seeds": [{"artist": "Radiohead", "title": "Pyramid Song"}],
+                "params": {
+                    "novelty": 50,
+                    "genre_lock": [],
+                    "artist_diversity": 5,
+                    "length": 10,
+                },
+            },
+        )
+    assert r.status_code == 502
+    assert r.json()["error"] == "lastfm_unavailable"
+
+
+@respx.mock
+async def test_recommend_all_seeds_dropped_returns_422() -> None:
+    _route("track.getSimilar", "Unknown", "Ghost Track", _similar_response([]))
+    _artist_route("artist.getSimilar", "Unknown", _artist_similar_response([]))
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        r = await ac.post(
+            "/recommend",
+            json={
+                "seeds": [{"artist": "Unknown", "title": "Ghost Track"}],
+                "params": {
+                    "novelty": 50,
+                    "genre_lock": [],
+                    "artist_diversity": 5,
+                    "length": 10,
+                },
+            },
+        )
+    assert r.status_code == 422
+    assert r.json()["error"] == "no_successful_seeds"
+    assert r.json()["dropped_seeds"] == ["Unknown/Ghost Track"]
+
+
+@respx.mock
+async def test_recommend_genre_lock_no_matches_returns_422() -> None:
+    # Seed and candidate both carry trip-hop; genre_lock=["metal"] filters everything out
+    _route(
+        "track.getSimilar",
+        "Portishead",
+        "Glory Box",
+        _similar_response(
+            [_sim_track("Teardrop", "Massive Attack", match=0.9, playcount=5_000_000)]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        "Portishead",
+        "Glory Box",
+        _tags_response("Portishead", "Glory Box", [("trip-hop", 100)]),
+    )
+    _route(
+        "track.getTopTags",
+        "Massive Attack",
+        "Teardrop",
+        _tags_response("Massive Attack", "Teardrop", [("trip-hop", 90)]),
+    )
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        r = await ac.post(
+            "/recommend",
+            json={
+                "seeds": [{"artist": "Portishead", "title": "Glory Box"}],
+                "params": {
+                    "novelty": 50,
+                    "genre_lock": ["metal"],
+                    "artist_diversity": 5,
+                    "length": 10,
+                },
+            },
+        )
+    assert r.status_code == 422
+    assert r.json()["error"] == "no_recommendations"
+
+
+@respx.mock
 async def test_recommend_csv_format() -> None:
     seed_artist, seed_title = "Radiohead", "Pyramid Song"
 

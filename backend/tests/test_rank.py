@@ -212,3 +212,24 @@ def test_score_is_bounded_0_1():
         result = rank(cands, [], _params(novelty=novelty, length=10))
         for c in result.candidates:
             assert 0.0 <= c.final_score <= 1.0 + 1e-9
+
+
+# pool_exhausted flag
+
+
+def test_pool_exhausted_true_when_pool_smaller_than_length():
+    # 3 candidates, length=10 -> pool is exhausted
+    cands = [_cand("A", f"T{i}", sim=0.5, novelty_bonus=0.0) for i in range(3)]
+    result = rank(cands, [], _params(length=10))
+    assert result.pool_exhausted is True
+    assert len(result.candidates) == 3
+
+
+def test_pool_exhausted_false_when_pool_meets_length():
+    # 10 candidates across distinct artists, length=5 -> pool has enough
+    cands = [
+        _cand(f"Artist{i}", f"T{i}", sim=0.5, novelty_bonus=0.0) for i in range(10)
+    ]
+    result = rank(cands, [], _params(length=5))
+    assert result.pool_exhausted is False
+    assert len(result.candidates) == 5

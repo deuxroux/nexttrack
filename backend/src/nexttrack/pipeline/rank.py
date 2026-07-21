@@ -36,7 +36,7 @@ def rank(
         scored.append(c.model_copy(update={"final_score": score}))
     scored.sort(key=lambda c: c.final_score, reverse=True)
 
-    # artist diversity cap (req 3.18) applied after sort
+    # artist diversity cap applied after sort
     counts: dict[str, int] = {}
     diverse: list[Candidate] = []
     for c in scored:
@@ -46,9 +46,12 @@ def rank(
             counts[key] = counts.get(key, 0) + 1
     scored = diverse
 
-    # return final results list
+    # Fallback D: notice when the pool couldn't fill the requested length
+    pool_exhausted = len(scored) < params.length
+
     return RecommendationResult(
         candidates=scored[: params.length],
         dropped_seeds=dropped_seeds,
         params=params,
+        pool_exhausted=pool_exhausted,
     )

@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
@@ -6,6 +7,7 @@ import httpx
 import redis.asyncio as redis_asyncio
 from fastapi import Depends, FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
@@ -60,6 +62,22 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="NextTrack", version="0.1.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    # Read directly from env so importing this module never triggers Settings
+    # validation (which requires LASTFM_API_KEY) before fixtures can set it.
+    allow_origins=[
+        o.strip()
+        for o in os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:5173").split(
+            ","
+        )
+        if o.strip()
+    ],
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+)
 
 
 @app.exception_handler(RequestValidationError)
@@ -136,17 +154,53 @@ async def recommend(
     dropped: list[str] = []
     per_stage: dict[str, float] = {}
 
-    async for item in aggregate_streaming(lf, body.seeds):
-        if isinstance(item, StageEvent):
-            stage_timings.record(item.stage, item.elapsed_ms)
-            per_stage[item.stage] = per_stage.get(item.stage, 0.0) + item.elapsed_ms
-        else:
-            candidates, dropped = item
+    try:
+        async for item in aggregate_streaming(lf, body.seeds):
+            if isinstance(item, StageEvent):
+                stage_timings.record(item.stage, item.elapsed_ms)
+                per_stage[item.stage] = per_stage.get(item.stage, 0.0) + item.elapsed_ms
+            else:
+                candidates, dropped = item
+    except httpx.HTTPError as exc:
+        # covers ConnectError, TimeoutException, and 5xx from Last.fm itself
+        logger.warning("lastfm outage during /recommend: %s", exc)
+        return JSONResponse(
+            status_code=502,
+            content={
+                "error": "lastfm_unavailable",
+                "detail": "Last.fm is not responding. Try again shortly.",
+            },
+        )
+
+    # req 3.21 — zero successful seeds: every seed hit a dead end
+    if len(dropped) == len(body.seeds):
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": "no_successful_seeds",
+                "detail": "None of the provided seed tracks could be resolved.",
+                "dropped_seeds": dropped,
+            },
+        )
 
     result = rank(candidates, dropped, body.params)
 
     total_ms = sum(per_stage.values())
     logger.info("recommend complete stage_ms=%s total_ms=%.1f", per_stage, total_ms)
+
+    # req 3.21 — zero successful recommendations after ranking/filtering
+    if not result.candidates:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": "no_recommendations",
+                "detail": (
+                    "No candidates survived ranking and filtering. "
+                    "Try loosening genre_lock or novelty settings."
+                ),
+                "dropped_seeds": dropped,
+            },
+        )
 
     if output_format == "csv":
         filename, csv_body = render_csv(

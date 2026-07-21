@@ -1,4 +1,4 @@
-#Tests that /metrics gets timing data from /recommend calls.
+# Tests that /metrics gets timing data from /recommend calls.
 
 from unittest.mock import patch
 
@@ -103,6 +103,7 @@ _PAYLOAD = {
     "params": {"novelty": 50, "genre_lock": [], "artist_diversity": 5, "length": 10},
 }
 
+
 @respx.mock
 async def test_metrics_timing_has_similarity_and_tags_stages():
     _mock_routes()
@@ -128,7 +129,7 @@ async def test_metrics_timing_stage_has_required_fields():
 
     timing = m.json()["timing"]
     for stage_name in ("similarity", "tags"):
-        #confirm order of percentiles
+        # confirm order of percentiles
         stage = timing[stage_name]
         assert "p50" in stage
         assert "p95" in stage
