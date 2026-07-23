@@ -19,6 +19,7 @@ from nexttrack.lastfm.client import LastfmClient
 from nexttrack.models import (
     Candidate,
     RecommendationParams,
+    RecommendationResult,
     SeedProfile,
     StageEvent,
     Track,
@@ -107,6 +108,15 @@ class ResolveSpotifyRequest(BaseModel):
     url: str
 
 
+class ErrorBody(BaseModel):
+    error: str
+    detail: str
+
+
+class SeedErrorBody(ErrorBody):
+    dropped_seeds: list[str]
+
+
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -138,13 +148,31 @@ async def seed_profile(
     return await build_seed_profile(lf, body.seeds)
 
 
-@app.post("/recommend")
+@app.post(
+    "/recommend",
+    response_model=RecommendationResult,
+    responses={
+        200: {
+            "content": {
+                "text/csv": {"schema": {"type": "string", "format": "binary"}},
+            },
+        },
+        422: {
+            "model": SeedErrorBody,
+            "description": "No successful seeds or no recommendations survived ranking",
+        },
+        502: {
+            "model": ErrorBody,
+            "description": "Last.fm unavailable",
+        },
+    },
+)
 async def recommend(
     body: RecommendRequest,
     req: Request,
     output_format: str = Query("json", alias="format"),
     settings: Settings = Depends(get_settings),
-):
+) -> RecommendationResult | StreamingResponse | JSONResponse:
     lf = LastfmClient(
         req.app.state.http_client, settings.lastfm_api_key, cache=req.app.state.cache
     )

@@ -1,0 +1,519 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "NextTrack",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "summary": "Metrics",
+        "operationId": "metrics_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Metrics Metrics Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/seed-profile": {
+      "post": {
+        "summary": "Seed Profile",
+        "operationId": "seed_profile_seed_profile_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SeedProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeedProfile"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recommend": {
+      "post": {
+        "summary": "Recommend",
+        "operationId": "recommend_recommend_post",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "json",
+              "title": "Format"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecommendRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecommendationResult"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "No successful seeds or no recommendations survived ranking"
+          },
+          "502": {
+            "description": "Last.fm unavailable"
+          }
+        }
+      }
+    },
+    "/recommend/stream": {
+      "post": {
+        "summary": "Recommend Stream",
+        "operationId": "recommend_stream_recommend_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecommendRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/resolve-spotify-url": {
+      "post": {
+        "summary": "Resolve Spotify Url",
+        "operationId": "resolve_spotify_url_resolve_spotify_url_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveSpotifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Candidate": {
+        "properties": {
+          "artist": {
+            "type": "string",
+            "title": "Artist"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "summed_similarity": {
+            "type": "number",
+            "title": "Summed Similarity"
+          },
+          "tag_overlap": {
+            "type": "number",
+            "title": "Tag Overlap"
+          },
+          "novelty_bonus": {
+            "type": "number",
+            "title": "Novelty Bonus"
+          },
+          "final_score": {
+            "type": "number",
+            "title": "Final Score"
+          },
+          "contributing_seeds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Contributing Seeds"
+          },
+          "matched_tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Matched Tags"
+          },
+          "explanation": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Explanation",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "artist",
+          "title",
+          "summed_similarity",
+          "tag_overlap",
+          "novelty_bonus",
+          "final_score",
+          "contributing_seeds",
+          "matched_tags"
+        ],
+        "title": "Candidate"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "RecommendRequest": {
+        "properties": {
+          "seeds": {
+            "items": {
+              "$ref": "#/components/schemas/Track"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Seeds"
+          },
+          "params": {
+            "$ref": "#/components/schemas/RecommendationParams"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seeds",
+          "params"
+        ],
+        "title": "RecommendRequest"
+      },
+      "RecommendationParams": {
+        "properties": {
+          "novelty": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Novelty"
+          },
+          "genre_lock": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Genre Lock"
+          },
+          "artist_diversity": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Artist Diversity"
+          },
+          "length": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 5.0,
+            "title": "Length",
+            "default": 10
+          }
+        },
+        "type": "object",
+        "required": [
+          "novelty",
+          "artist_diversity"
+        ],
+        "title": "RecommendationParams"
+      },
+      "RecommendationResult": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/Candidate"
+            },
+            "type": "array",
+            "title": "Candidates"
+          },
+          "dropped_seeds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Dropped Seeds"
+          },
+          "params": {
+            "$ref": "#/components/schemas/RecommendationParams"
+          },
+          "pool_exhausted": {
+            "type": "boolean",
+            "title": "Pool Exhausted",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "candidates",
+          "dropped_seeds",
+          "params"
+        ],
+        "title": "RecommendationResult"
+      },
+      "ResolveSpotifyRequest": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "ResolveSpotifyRequest"
+      },
+      "SeedProfile": {
+        "properties": {
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/TagCount"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "dropped_seeds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Dropped Seeds"
+          },
+          "total_seeds": {
+            "type": "integer",
+            "title": "Total Seeds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tags",
+          "dropped_seeds",
+          "total_seeds"
+        ],
+        "title": "SeedProfile"
+      },
+      "SeedProfileRequest": {
+        "properties": {
+          "seeds": {
+            "items": {
+              "$ref": "#/components/schemas/Track"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Seeds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seeds"
+        ],
+        "title": "SeedProfileRequest"
+      },
+      "TagCount": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "seed_count": {
+            "type": "integer",
+            "title": "Seed Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "seed_count"
+        ],
+        "title": "TagCount"
+      },
+      "Track": {
+        "properties": {
+          "artist": {
+            "type": "string",
+            "title": "Artist"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "artist",
+          "title"
+        ],
+        "title": "Track"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

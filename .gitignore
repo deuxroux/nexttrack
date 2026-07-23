@@ -1,6 +1,7 @@
 __pycache__/
 .venv/
-.env
+backend/.env
+frontend/.env
 *.env.local
 *.pyc
 .pytest_cache/
@@ -8,7 +9,6 @@ __pycache__/
 .DS_Store
 CLAUDE.md
 .claude/
-backend/scripts/capture_fixtures.py
 
 dist/
 build/
@@ -20,6 +20,20 @@ htmlcov/
 .vscode/
 .idea/
 
+
+# Vite / Node build artifacts
+frontend/dist-ssr/
+frontend/.vite/
+*.tsbuildinfo
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# lint cache
+.eslintcache
+
 frontend/node_modules/
 frontend/dist/
-frontend/.env.local
+frontend/.env.*.local
