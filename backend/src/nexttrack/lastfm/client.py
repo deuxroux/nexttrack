@@ -68,7 +68,11 @@ class LastfmClient:
         if self._cache is not None:
             cached = await self._cache.get(LastfmCache.key_similar(artist, title))
             if cached is not None:
-                return SimilarTracksResult(tracks=cached["tracks"])
+                return SimilarTracksResult(
+                    tracks=cached["tracks"],
+                    fallback_used=cached.get("fallback_used", False),
+                    fallback_note=cached.get("fallback_note", ""),
+                )
 
         data = await self._fetch(
             method="track.getSimilar", artist=artist, track=title, limit=50
@@ -81,13 +85,28 @@ class LastfmClient:
                     LastfmCache.key_similar(artist, title), {"tracks": parsed}
                 )
             return SimilarTracksResult(tracks=parsed)
-        return await self._fallback_artist_similar(artist, title)
+
+        result = await self._fallback_artist_similar(artist, title)
+        if self._cache is not None:
+            await self._cache.set(
+                LastfmCache.key_similar(artist, title),
+                {
+                    "tracks": result.tracks,
+                    "fallback_used": True,
+                    "fallback_note": result.fallback_note,
+                },
+            )
+        return result
 
     async def get_top_tags(self, artist: str, title: str) -> TopTagsResult:
         if self._cache is not None:
             cached = await self._cache.get(LastfmCache.key_toptags(artist, title))
             if cached is not None:
-                return TopTagsResult(tags=cached["tags"])
+                return TopTagsResult(
+                    tags=cached["tags"],
+                    fallback_used=cached.get("fallback_used", False),
+                    fallback_note=cached.get("fallback_note", ""),
+                )
 
         data = await self._fetch(method="track.getTopTags", artist=artist, track=title)
         raw = data.get("toptags", {}).get("tag", [])
@@ -98,7 +117,18 @@ class LastfmClient:
                     LastfmCache.key_toptags(artist, title), {"tags": parsed}
                 )
             return TopTagsResult(tags=parsed)
-        return await self._fallback_artist_top_tags(artist, title)
+
+        result = await self._fallback_artist_top_tags(artist, title)
+        if self._cache is not None:
+            await self._cache.set(
+                LastfmCache.key_toptags(artist, title),
+                {
+                    "tags": result.tags,
+                    "fallback_used": True,
+                    "fallback_note": result.fallback_note,
+                },
+            )
+        return result
 
     # private data parsers. all private funtions with _
 

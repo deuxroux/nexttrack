@@ -240,6 +240,93 @@ async def test_cache_hit_skips_lastfm_fetch(cache: LastfmCache) -> None:
     assert cache.hits >= 1
 
 
+# Fallback results are cached and metadata is preserved on cache hit
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+async def test_cache_hit_after_similar_fallback_preserves_metadata(
+    cache: LastfmCache,
+) -> None:
+    # confirm if track.getSimilar empty → artist.getSimilar fallback fires and is cached.
+    respx.get(BASE_URL, params={"method": "track.getSimilar"}).mock(
+        return_value=httpx.Response(200, json={"similartracks": {"track": []}})
+    )
+    fallback_route = respx.get(
+        BASE_URL, params={"method": "artist.getSimilar"}
+    ).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "similarartists": {
+                    "artist": [{"name": "Portishead", "match": "0.85", "url": ""}]
+                }
+            },
+        )
+    )
+    respx.get(BASE_URL, params={"method": "artist.getTopTracks"}).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "toptracks": {
+                    "track": [{"name": "Glory Box", "playcount": "5000000"}]
+                }
+            },
+        )
+    )
+
+    async with httpx.AsyncClient() as http:
+        client = LastfmClient(http, API_KEY, cache=cache)
+        r1 = await client.get_similar_tracks("Dr. Dog", "Shadow People")
+        calls_after_first = fallback_route.call_count
+
+        r2 = await client.get_similar_tracks("Dr. Dog", "Shadow People")
+        assert fallback_route.call_count == calls_after_first
+
+    assert r1.fallback_used is True
+    assert r2.fallback_used is True
+    assert r2.fallback_note == r1.fallback_note
+    assert r2.tracks == r1.tracks
+    assert cache.hits >= 1
+
+
+@respx.mock
+async def test_cache_hit_after_toptags_fallback_preserves_metadata(
+    cache: LastfmCache,
+) -> None:
+    # confirm if track.getTopTags empty → artist.getTopTags fallback fires and is cached.
+    # Second call returns from cache
+    respx.get(BASE_URL, params={"method": "track.getTopTags"}).mock(
+        return_value=httpx.Response(200, json={"toptags": {"tag": []}})
+    )
+    fallback_route = respx.get(
+        BASE_URL, params={"method": "artist.getTopTags"}
+    ).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "toptags": {
+                    "tag": [{"name": "indie rock", "count": "75", "url": ""}]
+                }
+            },
+        )
+    )
+
+    async with httpx.AsyncClient() as http:
+        client = LastfmClient(http, API_KEY, cache=cache)
+        r1 = await client.get_top_tags("Dr. Dog", "Shadow People")
+        calls_after_first = fallback_route.call_count
+
+        r2 = await client.get_top_tags("Dr. Dog", "Shadow People")
+        assert fallback_route.call_count == calls_after_first
+
+    assert r1.fallback_used is True
+    assert r2.fallback_used is True
+    assert r2.fallback_note == r1.fallback_note
+    assert r2.tags == r1.tags
+    assert cache.hits >= 1
+
+
 # if disabled path works
 @respx.mock
 async def test_cache_none_disables_caching_cleanly() -> None:
