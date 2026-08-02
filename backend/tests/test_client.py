@@ -252,9 +252,7 @@ async def test_cache_hit_after_similar_fallback_preserves_metadata(
     respx.get(BASE_URL, params={"method": "track.getSimilar"}).mock(
         return_value=httpx.Response(200, json={"similartracks": {"track": []}})
     )
-    fallback_route = respx.get(
-        BASE_URL, params={"method": "artist.getSimilar"}
-    ).mock(
+    fallback_route = respx.get(BASE_URL, params={"method": "artist.getSimilar"}).mock(
         return_value=httpx.Response(
             200,
             json={
@@ -268,9 +266,7 @@ async def test_cache_hit_after_similar_fallback_preserves_metadata(
         return_value=httpx.Response(
             200,
             json={
-                "toptracks": {
-                    "track": [{"name": "Glory Box", "playcount": "5000000"}]
-                }
+                "toptracks": {"track": [{"name": "Glory Box", "playcount": "5000000"}]}
             },
         )
     )
@@ -299,15 +295,11 @@ async def test_cache_hit_after_toptags_fallback_preserves_metadata(
     respx.get(BASE_URL, params={"method": "track.getTopTags"}).mock(
         return_value=httpx.Response(200, json={"toptags": {"tag": []}})
     )
-    fallback_route = respx.get(
-        BASE_URL, params={"method": "artist.getTopTags"}
-    ).mock(
+    fallback_route = respx.get(BASE_URL, params={"method": "artist.getTopTags"}).mock(
         return_value=httpx.Response(
             200,
             json={
-                "toptags": {
-                    "tag": [{"name": "indie rock", "count": "75", "url": ""}]
-                }
+                "toptags": {"tag": [{"name": "indie rock", "count": "75", "url": ""}]}
             },
         )
     )

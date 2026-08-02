@@ -29,6 +29,12 @@ class Candidate(BaseModel):
     ] = []  # non-empty if any contributing seed used a fallback route
 
 
+class TrackHit(BaseModel):
+    artist: str
+    title: str
+    image: str | None = None
+
+
 class StageEvent(BaseModel):
     stage: str
     seeds_done: int | None = None

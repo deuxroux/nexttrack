@@ -1,0 +1,69 @@
+{
+  "results": {
+    "opensearch:Query": {
+      "#text": "",
+      "role": "request",
+      "searchTerms": "radiohead",
+      "startPage": "1"
+    },
+    "opensearch:totalResults": "31337",
+    "opensearch:startIndex": "0",
+    "opensearch:itemsPerPage": "3",
+    "trackmatches": {
+      "track": [
+        {
+          "name": "Creep",
+          "artist": "Radiohead",
+          "url": "https://www.last.fm/music/Radiohead/_/Creep",
+          "listeners": "2800000",
+          "mbid": "ec5a1d83-7e58-4cb9-94f0-9a01c4c42df3",
+          "image": [
+            {
+              "#text": "https://lastfm.freetls.fastly.net/i/u/34s/abc123.png",
+              "size": "small"
+            },
+            {
+              "#text": "https://lastfm.freetls.fastly.net/i/u/64s/abc123.png",
+              "size": "medium"
+            },
+            {
+              "#text": "https://lastfm.freetls.fastly.net/i/u/174s/abc123.png",
+              "size": "large"
+            },
+            {
+              "#text": "https://lastfm.freetls.fastly.net/i/u/300x300/abc123.png",
+              "size": "extralarge"
+            }
+          ]
+        },
+        {
+          "name": "Karma Police",
+          "artist": "Radiohead",
+          "url": "https://www.last.fm/music/Radiohead/_/Karma+Police",
+          "listeners": "2400000",
+          "mbid": "",
+          "image": [
+            {"#text": "", "size": "small"},
+            {"#text": "", "size": "medium"},
+            {"#text": "", "size": "large"},
+            {"#text": "", "size": "extralarge"}
+          ]
+        },
+        {
+          "name": "No Surprises",
+          "artist": "Radiohead",
+          "url": "https://www.last.fm/music/Radiohead/_/No+Surprises",
+          "listeners": "1900000",
+          "mbid": "",
+          "image": [
+            {"#text": "", "size": "small"},
+            {"#text": "https://lastfm.freetls.fastly.net/i/u/64s/xyz789.png", "size": "medium"},
+            {"#text": "", "size": "large"},
+            {"#text": "", "size": "extralarge"}
+          ]
+        }
+      ]
+    },
+    "@attr": {"for": "radiohead"}
+  }
+}

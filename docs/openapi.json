@@ -27,6 +27,62 @@
         }
       }
     },
+    "/search": {
+      "get": {
+        "summary": "Search",
+        "operationId": "search_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Q"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 20,
+              "minimum": 1,
+              "default": 8,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrackHit"
+                  },
+                  "title": "Response Search Search Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/metrics": {
       "get": {
         "summary": "Metrics",
@@ -129,10 +185,24 @@
             }
           },
           "422": {
-            "description": "No successful seeds or no recommendations survived ranking"
+            "description": "No successful seeds or no recommendations survived ranking",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeedErrorBody"
+                }
+              }
+            }
           },
           "502": {
-            "description": "Last.fm unavailable"
+            "description": "Last.fm unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
           }
         }
       }
@@ -274,6 +344,24 @@
         ],
         "title": "Candidate"
       },
+      "ErrorBody": {
+        "properties": {
+          "error": {
+            "type": "string",
+            "title": "Error"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error",
+          "detail"
+        ],
+        "title": "ErrorBody"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -391,6 +479,32 @@
         ],
         "title": "ResolveSpotifyRequest"
       },
+      "SeedErrorBody": {
+        "properties": {
+          "error": {
+            "type": "string",
+            "title": "Error"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "dropped_seeds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Dropped Seeds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error",
+          "detail",
+          "dropped_seeds"
+        ],
+        "title": "SeedErrorBody"
+      },
       "SeedProfile": {
         "properties": {
           "tags": {
@@ -473,6 +587,35 @@
           "title"
         ],
         "title": "Track"
+      },
+      "TrackHit": {
+        "properties": {
+          "artist": {
+            "type": "string",
+            "title": "Artist"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          }
+        },
+        "type": "object",
+        "required": [
+          "artist",
+          "title"
+        ],
+        "title": "TrackHit"
       },
       "ValidationError": {
         "properties": {

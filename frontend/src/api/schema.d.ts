@@ -21,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search */
+        get: operations["search_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/metrics": {
         parameters: {
             query?: never;
@@ -134,6 +151,13 @@ export interface components {
              */
             explanation: string[];
         };
+        /** ErrorBody */
+        ErrorBody: {
+            /** Error */
+            error: string;
+            /** Detail */
+            detail: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -177,6 +201,15 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** SeedErrorBody */
+        SeedErrorBody: {
+            /** Error */
+            error: string;
+            /** Detail */
+            detail: string;
+            /** Dropped Seeds */
+            dropped_seeds: string[];
+        };
         /** SeedProfile */
         SeedProfile: {
             /** Tags */
@@ -204,6 +237,15 @@ export interface components {
             artist: string;
             /** Title */
             title: string;
+        };
+        /** TrackHit */
+        TrackHit: {
+            /** Artist */
+            artist: string;
+            /** Title */
+            title: string;
+            /** Image */
+            image?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -245,6 +287,38 @@ export interface operations {
                     "application/json": {
                         [key: string]: string;
                     };
+                };
+            };
+        };
+    };
+    search_search_get: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackHit"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -334,14 +408,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["SeedErrorBody"];
+                };
             };
             /** @description Last.fm unavailable */
             502: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
             };
         };
     };

@@ -23,6 +23,7 @@ from nexttrack.models import (
     SeedProfile,
     StageEvent,
     Track,
+    TrackHit,
 )
 from nexttrack.observability.timing import StageTimings
 from nexttrack.pipeline.aggregate import aggregate_streaming, build_seed_profile
@@ -120,6 +121,22 @@ class SeedErrorBody(ErrorBody):
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/search", response_model=list[TrackHit])
+async def search(
+    req: Request,
+    q: str = Query(..., min_length=1),
+    limit: int = Query(8, ge=1, le=20),
+    settings: Settings = Depends(get_settings),
+) -> list[TrackHit]:
+    if len(q.strip()) < 2:
+        return []
+    lf = LastfmClient(
+        req.app.state.http_client, settings.lastfm_api_key, cache=req.app.state.cache
+    )
+    hits = await lf.search_tracks(q, limit)
+    return [TrackHit(**h) for h in hits]
 
 
 @app.get("/metrics")

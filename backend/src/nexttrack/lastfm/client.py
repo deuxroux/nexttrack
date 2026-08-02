@@ -130,6 +130,26 @@ class LastfmClient:
             )
         return result
 
+    async def search_tracks(self, query: str, limit: int = 8) -> list[dict]:
+        if self._cache is not None:
+            cached = await self._cache.get(LastfmCache.key_search(query, limit))
+            if cached is not None:
+                return cached["hits"]
+
+        data = await self._fetch(method="track.search", track=query, limit=limit)
+        raw = data.get("results", {}).get("trackmatches", {}).get("track", [])
+        if isinstance(raw, dict):
+            raw = [raw]
+        elif not isinstance(raw, list):
+            raw = []
+
+        hits = [self._parse_search_track(t) for t in raw]
+
+        if self._cache is not None:
+            await self._cache.set(LastfmCache.key_search(query, limit), {"hits": hits})
+
+        return hits
+
     # private data parsers. all private funtions with _
 
     @staticmethod
@@ -147,6 +167,19 @@ class LastfmClient:
     @staticmethod
     def _parse_tags(raw: list[dict]) -> list[dict]:
         return [{"name": t["name"], "count": int(t["count"])} for t in raw]
+
+    @staticmethod
+    def _parse_search_track(t: dict) -> dict:
+        images = {
+            img["size"]: img["#text"] for img in t.get("image", []) if "#text" in img
+        }
+        image_url: str | None = None
+        for size in ("extralarge", "large", "medium", "small"):
+            url = images.get(size, "")
+            if url:
+                image_url = url
+                break
+        return {"artist": t["artist"], "title": t["name"], "image": image_url}
 
     #  artist.getSimilar + artist.getTopTracks fallback
 

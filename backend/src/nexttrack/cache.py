@@ -24,6 +24,10 @@ class LastfmCache:
     def key_toptags(artist: str, title: str) -> str:
         return f"lastfm:v1:toptags:{_norm(artist)}:{_norm(title)}"
 
+    @staticmethod
+    def key_search(query: str, limit: int) -> str:
+        return f"lastfm:v1:search:{_norm(query)}:{limit}"
+
     async def get(self, key: str) -> dict | None:
         raw = await self._redis.get(key)
         if raw is None:
