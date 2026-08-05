@@ -171,7 +171,9 @@ class LastfmClient:
     @staticmethod
     def _parse_search_track(t: dict) -> dict:
         images = {
-            img["size"]: img["#text"] for img in t.get("image", []) if "#text" in img #deal with images
+            img["size"]: img["#text"]
+            for img in t.get("image", [])
+            if "#text" in img  # deal with images
         }
         image_url: str | None = None
         for size in ("extralarge", "large", "medium", "small"):
