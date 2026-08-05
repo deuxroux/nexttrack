@@ -35,7 +35,8 @@ async def _app_ctx(monkeypatch):
     get_settings.cache_clear()
 
 
-# (a) fixture parses to correct TrackHit fields; largest non-empty image wins
+# test search hit endpoints.
+# a) fixture parses TrackHit fields largest non-empty image is returned. use the json file with sample data pull
 @respx.mock
 async def test_search_parses_artist_title_and_image():
     respx.get(
@@ -61,7 +62,7 @@ async def test_search_parses_artist_title_and_image():
     assert hits[2]["image"] == "https://lastfm.freetls.fastly.net/i/u/64s/xyz789.png"
 
 
-# (b) track with all-empty image #text fields yields image=None
+# b) track with all-empty image #text fields yields image=None
 @respx.mock
 async def test_search_empty_images_yield_none():
     respx.get(
@@ -76,7 +77,7 @@ async def test_search_empty_images_yield_none():
     assert hits[1]["image"] is None  # Karma Police: all #text are empty
 
 
-# (c) q shorter than 2 stripped chars returns [] with zero outbound requests
+# c) q shorter than 2 stripped chars returns [] with zero outbound requests
 @respx.mock
 async def test_search_short_query_returns_empty_no_network(_app_ctx):
     route = respx.get(BASE_URL).mock(return_value=httpx.Response(200, json=FIXTURE))
@@ -91,7 +92,7 @@ async def test_search_short_query_returns_empty_no_network(_app_ctx):
     assert not route.called
 
 
-# (d) repeated identical query is served from cache on second call
+# d) repeated identical query is served from cache on second call
 @respx.mock
 async def test_search_cache_hit_on_repeat():
     route = respx.get(

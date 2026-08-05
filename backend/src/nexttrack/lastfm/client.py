@@ -30,7 +30,7 @@ class TopTagsResult:
 
 
 class LastfmClient:
-    # reminder: api key is not exposed. requires an individual's key in a separate env file.
+    # REMEMBER api key is not exposed. requires an individual's key in a separate env file.
     def __init__(
         self,
         client: httpx.AsyncClient,
@@ -43,7 +43,7 @@ class LastfmClient:
         self._request_times: deque[float] = deque(maxlen=_RATE_LIMIT)
 
     async def _fetch(self, **params) -> dict:
-        # Enforce <=_RATE_LIMIT requests/second via sliding-window throttle
+        # Enforce a reate limited requests/second via sliding-window throttle
         if len(self._request_times) == _RATE_LIMIT:
             gap = 1.0 - (time.monotonic() - self._request_times[0])
             if gap > 0:
@@ -171,7 +171,7 @@ class LastfmClient:
     @staticmethod
     def _parse_search_track(t: dict) -> dict:
         images = {
-            img["size"]: img["#text"] for img in t.get("image", []) if "#text" in img
+            img["size"]: img["#text"] for img in t.get("image", []) if "#text" in img #deal with images
         }
         image_url: str | None = None
         for size in ("extralarge", "large", "medium", "small"):

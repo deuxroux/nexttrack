@@ -217,7 +217,7 @@ async def recommend(
             },
         )
 
-    # req 3.21 — zero successful seeds: every seed hit a dead end
+    # if zero successful seeds: every seed hit a dead end
     if len(dropped) == len(body.seeds):
         return JSONResponse(
             status_code=422,
@@ -233,7 +233,7 @@ async def recommend(
     total_ms = sum(per_stage.values())
     logger.info("recommend complete stage_ms=%s total_ms=%.1f", per_stage, total_ms)
 
-    # req 3.21 — zero successful recommendations after ranking/filtering
+    # if zero successful recommendations after ranking/filtering
     if not result.candidates:
         return JSONResponse(
             status_code=422,
