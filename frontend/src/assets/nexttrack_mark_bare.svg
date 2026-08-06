@@ -1,6 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="NextTrack">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="6 9 36 30" width="36" height="30" role="img" aria-label="NextTrack">
   <title>NextTrack</title>
-  <rect x="2" y="2" width="44" height="44" rx="11" fill="#0E1614" stroke="#1F2A27" stroke-width="1.5"/>
   <g fill="#3FBF8F">
     <rect x="11.5" y="13" width="6.5" height="22" rx="3"/>
     <path d="M11.5 13.5 L18 13.5 L34 34.5 L27.5 34.5 Z"/>

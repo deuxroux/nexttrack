@@ -1,5 +1,6 @@
 //code for the top naigation bar. uses
 import { useHealth } from "../hooks/useHealth";
+import logoUrl from "../assets/nexttrack_mark_bare.svg";
 import styles from "./TopNav.module.css";
 
 export function TopNav() {
@@ -8,6 +9,7 @@ export function TopNav() {
   return (
     <header className={styles.nav}>
       <div className={styles.brand}>
+        <img src={logoUrl} alt="NextTrack logo" className={styles.logo} aria-hidden="true" />
         <span className={styles.title}>NextTrack</span>
         <span className={styles.pill}>Stateless Music Recommender</span>
       </div>

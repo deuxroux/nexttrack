@@ -41,7 +41,7 @@ export function SeedBuilder({ seeds }: Props) {
     setDropdownOpen(false);
   }
 
-  //allow keyboard commands too
+  //allow keyboard commands in last.fm search window
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (!showDropdown) return;
     switch (e.key) {
@@ -82,104 +82,75 @@ export function SeedBuilder({ seeds }: Props) {
     showDropdown && activeIndex >= 0
       ? `${listboxId}-opt-${activeIndex}`
       : undefined;
-  //for now, raw html
+
   return (
     <div className={styles.container}>
-      {/* search typeahead */}
-      <label htmlFor={`${listboxId}-input`} className={styles.label}>
-        Search for a track
-      </label>
-      <div className={styles.searchWrap}>
-        <input
-          ref={inputRef}
-          id={`${listboxId}-input`}
-          className={styles.searchInput}
-          role="combobox"
-          aria-expanded={showDropdown}
-          aria-haspopup="listbox"
-          aria-controls={listboxId}
-          aria-activedescendant={activeOptionId}
-          aria-label="Search for a track"
-          value={query}
-          onChange={handleQueryChange}
-          onKeyDown={handleKeyDown}
-          onFocus={() => setDropdownOpen(true)}
-          onBlur={handleSearchBlur}
-          placeholder="Artist or track name…"
-          autoComplete="off"
-        />
-        {searchLoading && (
-          <span className={styles.searchSpinner} aria-hidden="true">…</span>
-        )}
-        {showDropdown && (
-          <ul
-            id={listboxId}
-            role="listbox"
-            aria-label="Search results"
-            className={styles.dropdown}
-          >
-            {results.map((hit, i) => (
-              <li
-                key={`${hit.artist}|${hit.title}`}
-                id={`${listboxId}-opt-${i}`}
-                role="option"
-                aria-selected={i === activeIndex}
-                className={styles.option}
-                data-active={i === activeIndex}
-                onMouseDown={() => selectResult(i)}
-              >
-                {hit.image && (
-                  <img
-                    src={hit.image}
-                    alt=""
-                    className={styles.thumb}
-                    width={32}
-                    height={32}
-                  />
-                )}
-                <span className={styles.optionTitle}>{hit.title}</span>
-                <span className={styles.optionArtist}>{hit.artist}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
 
-      {/* selected seed list */}
-      <div className={styles.seedHeader}>
-        <span className={styles.seedCount}>
-          {seeds.count} / 50 tracks
-        </span>
-        {seeds.atCap && (
-          <span className={styles.capNotice} role="status">
-            Maximum 50 tracks reached.
-          </span>
-        )}
-      </div>
-
-      {seeds.seeds.length > 0 && (
-        <ul className={styles.seedList} aria-label="Seed tracks">
-          {seeds.seeds.map((seed, i) => (
-            <li key={`${seed.artist}|${seed.title}|${i}`} className={styles.seedItem}>
-              <span className={styles.seedTitle}>{seed.title}</span>
-              <span className={styles.seedArtist}>{seed.artist}</span>
-              <button
-                className={styles.removeBtn}
-                onClick={() => seeds.remove(i)}
-                aria-label={`Remove ${seed.title} by ${seed.artist}`}
-              >
-                ×
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {/* spotify url input */}
-      <div className={styles.spotifySection}>
-        <label htmlFor={`${listboxId}-spotify`} className={styles.label}>
-          Paste a Spotify track URL
+      {/* ── Last.fm search (primary input) ── */}
+      <div className={styles.searchSection}>
+        <label htmlFor={`${listboxId}-input`} className={styles.label}>
+          Search for a track
         </label>
+        <div className={styles.searchWrap}>
+          <input
+            ref={inputRef}
+            id={`${listboxId}-input`}
+            className={styles.searchInput}
+            role="combobox"
+            aria-expanded={showDropdown}
+            aria-haspopup="listbox"
+            aria-controls={listboxId}
+            aria-activedescendant={activeOptionId}
+            aria-label="Search for a track"
+            value={query}
+            onChange={handleQueryChange}
+            onKeyDown={handleKeyDown}
+            onFocus={() => setDropdownOpen(true)}
+            onBlur={handleSearchBlur}
+            placeholder="Artist or track name…"
+            autoComplete="off"
+          />
+          {searchLoading && (
+            <span className={styles.searchSpinner} aria-hidden="true">…</span>
+          )}
+          {showDropdown && (
+            <ul
+              id={listboxId}
+              role="listbox"
+              aria-label="Search results"
+              className={styles.dropdown}
+            >
+              {results.map((hit, i) => (
+                <li
+                  key={`${hit.artist}|${hit.title}`}
+                  id={`${listboxId}-opt-${i}`}
+                  role="option"
+                  aria-selected={i === activeIndex}
+                  className={styles.option}
+                  data-active={i === activeIndex}
+                  onMouseDown={() => selectResult(i)}
+                >
+                  {hit.image && (
+                    <img
+                      src={hit.image}
+                      alt=""
+                      className={styles.thumb}
+                      width={32}
+                      height={32}
+                    />
+                  )}
+                  <span className={styles.optionTitle}>{hit.title}</span>
+                  <span className={styles.optionArtist}>{hit.artist}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      {/* ── Spotify URL import (secondary / muted) ── */}
+      <div className={styles.spotifySection}>
+        <p className={styles.spotifyDivider}>or import via Spotify URL</p>
         <div className={styles.spotifyRow}>
           <input
             id={`${listboxId}-spotify`}
@@ -204,6 +175,36 @@ export function SeedBuilder({ seeds }: Props) {
           </p>
         )}
       </div>
+
+      {/* ── Seed playlist (below both inputs) ── */}
+      <div className={styles.seedSection}>
+        <div className={styles.seedHeader}>
+          <span className={styles.seedCount}>{seeds.count} / 50 tracks</span>
+          {seeds.atCap && (
+            <span className={styles.capNotice} role="status">
+              Maximum 50 tracks reached.
+            </span>
+          )}
+        </div>
+        {seeds.seeds.length > 0 && (
+          <ul className={styles.seedList} aria-label="Seed tracks">
+            {seeds.seeds.map((seed, i) => (
+              <li key={`${seed.artist}|${seed.title}|${i}`} className={styles.seedItem}>
+                <span className={styles.seedTitle}>{seed.title}</span>
+                <span className={styles.seedArtist}>{seed.artist}</span>
+                <button
+                  className={styles.removeBtn}
+                  onClick={() => seeds.remove(i)}
+                  aria-label={`Remove ${seed.title} by ${seed.artist}`}
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
     </div>
   );
 }

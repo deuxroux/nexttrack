@@ -1,7 +1,7 @@
 .container {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 0;
 }
 
 .label {
@@ -14,7 +14,11 @@
   text-transform: uppercase;
 }
 
-/* search */
+/* ── Last.fm search (primary) ── */
+.searchSection {
+  padding-bottom: 12px;
+}
+
 .searchWrap {
   position: relative;
 }
@@ -22,12 +26,12 @@
 .searchInput {
   width: 100%;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-2);
   border-radius: var(--radius);
   color: var(--text);
   font-family: var(--font-ui);
   font-size: 0.875rem;
-  padding: 8px 12px;
+  padding: 9px 12px;
 }
 
 .searchInput::placeholder {
@@ -92,7 +96,78 @@
   font-size: 0.8125rem;
 }
 
-/* seed count header */
+/* ── Spotify section (secondary / muted) ── */
+.spotifySection {
+  padding: 10px 0 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* "or import via" text-divider — draws the eye down without competing */
+.spotifyDivider {
+  margin: 0 0 8px;
+  font-size: 0.6875rem;
+  color: var(--text-faint);
+  letter-spacing: 0.3px;
+}
+
+.spotifyRow {
+  display: flex;
+  gap: 8px;
+}
+
+.spotifyInput {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-2);
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  padding: 6px 10px;
+}
+
+.spotifyInput::placeholder {
+  color: var(--text-faint);
+}
+
+/* ghost button — quiet, doesn't compete with the primary search */
+.spotifyBtn {
+  background: none;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  font-weight: var(--fw-ui-med);
+  cursor: pointer;
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+
+.spotifyBtn:hover:not(:disabled) {
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+.spotifyBtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.spotifyNotice {
+  margin: 6px 0 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* ── Seed playlist (below both inputs) ── */
+.seedSection {
+  padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .seedHeader {
   display: flex;
   align-items: center;
@@ -110,7 +185,6 @@
   color: var(--danger);
 }
 
-/* seed list */
 .seedList {
   list-style: none;
   margin: 0;
@@ -160,54 +234,4 @@
 
 .removeBtn:hover {
   color: var(--danger);
-}
-
-/* spotify section */
-.spotifySection {
-  border-top: 1px solid var(--border);
-  padding-top: 16px;
-}
-
-.spotifyRow {
-  display: flex;
-  gap: 8px;
-}
-
-.spotifyInput {
-  flex: 1;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text);
-  font-family: var(--font-ui);
-  font-size: 0.875rem;
-  padding: 8px 12px;
-}
-
-.spotifyInput::placeholder {
-  color: var(--text-faint);
-}
-
-.spotifyBtn {
-  background: var(--accent-bg);
-  border: 1px solid var(--accent-border);
-  border-radius: var(--radius);
-  color: var(--accent);
-  font-family: var(--font-ui);
-  font-size: 0.875rem;
-  font-weight: var(--fw-ui-med);
-  cursor: pointer;
-  padding: 8px 14px;
-  white-space: nowrap;
-}
-
-.spotifyBtn:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.spotifyNotice {
-  margin: 8px 0 0;
-  font-size: 0.75rem;
-  color: var(--text-muted);
 }

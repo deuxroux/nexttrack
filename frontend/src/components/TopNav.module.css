@@ -11,7 +11,13 @@
 .brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+}
+
+.logo {
+  width: 28px;
+  height: 24px;
+  flex-shrink: 0;
 }
 
 .title {
