@@ -27,7 +27,7 @@
   font-weight: var(--fw-ui-med);
   letter-spacing: var(--ls-eyebrow);
   text-transform: uppercase;
-  color: var(--text-mut);
+  color: var(--text-muted);
 }
 
 .panelTitle {
@@ -39,6 +39,7 @@
   font-size: 1.125rem;
   color: var(--text);
 }
+
 
 @media (max-width: 768px) {
   .grid {

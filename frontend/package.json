@@ -12,6 +12,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@microsoft/fetch-event-source": "^2.0.1",
+    "@tabler/icons-react": "^3.46.0",
     "openapi-fetch": "^0.17.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
