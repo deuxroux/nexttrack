@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     #  /resolve-spotify-url returns 503 if either field is empty.
     spotify_client_id: str = ""
     spotify_client_secret: str = ""
-    cache_ttl_spotify_seconds: int = 30 * 24 * 3600
+    cache_ttl_spotify_seconds: int = 14 * 24 * 3600
 
     # comma-separated list for local host origins. can add "[...], http://localhost:3000"
     cors_allowed_origins: str = "http://localhost:5173"
