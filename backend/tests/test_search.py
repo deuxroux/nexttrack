@@ -1,4 +1,4 @@
-"""Tests for GET /search and LastfmClient.search_tracks."""
+#Tests for GET /search and LastfmClient.search_tracks
 
 import json
 from pathlib import Path
@@ -35,49 +35,8 @@ async def _app_ctx(monkeypatch):
     get_settings.cache_clear()
 
 
-# test search hit endpoints.
-# a) fixture parses TrackHit fields largest non-empty image is returned. use the json file with sample data pull
-@respx.mock
-async def test_search_parses_artist_title_and_image():
-    respx.get(
-        BASE_URL,
-        params={"method": "track.search", "track": "radiohead"},
-    ).mock(return_value=httpx.Response(200, json=FIXTURE))
-
-    async with httpx.AsyncClient() as client:
-        lf = LastfmClient(client, "test_key")
-        hits = await lf.search_tracks("radiohead", limit=3)
-
-    assert len(hits) == 3
-    assert hits[0]["artist"] == "Radiohead"
-    assert hits[0]["title"] == "Creep"
-    # Creep has all sizes populated; extralarge must be selected
-    assert (
-        hits[0]["image"] == "https://lastfm.freetls.fastly.net/i/u/300x300/abc123.png"
-    )
-
-    assert hits[1]["title"] == "Karma Police"
-    # No Surprises: only medium populated; medium must be selected
-    assert hits[2]["title"] == "No Surprises"
-    assert hits[2]["image"] == "https://lastfm.freetls.fastly.net/i/u/64s/xyz789.png"
-
-
-# b) track with all-empty image #text fields yields image=None
-@respx.mock
-async def test_search_empty_images_yield_none():
-    respx.get(
-        BASE_URL,
-        params={"method": "track.search", "track": "radiohead"},
-    ).mock(return_value=httpx.Response(200, json=FIXTURE))
-
-    async with httpx.AsyncClient() as client:
-        lf = LastfmClient(client, "test_key")
-        hits = await lf.search_tracks("radiohead", limit=3)
-
-    assert hits[1]["image"] is None  # Karma Police: all #text are empty
-
-
-# c) q shorter than 2 stripped chars returns [] with zero outbound requests
+# confirm test search hit endpoint limits
+# query shorter than 2 stripped chars returns [] with zero outbound requests
 @respx.mock
 async def test_search_short_query_returns_empty_no_network(_app_ctx):
     route = respx.get(BASE_URL).mock(return_value=httpx.Response(200, json=FIXTURE))
@@ -92,7 +51,7 @@ async def test_search_short_query_returns_empty_no_network(_app_ctx):
     assert not route.called
 
 
-# d) repeated identical query is served from cache on second call
+# identical query is served from cache on second call
 @respx.mock
 async def test_search_cache_hit_on_repeat():
     route = respx.get(

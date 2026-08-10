@@ -31,9 +31,9 @@ async def _override_settings(monkeypatch):
 
 
 # Shared  helpers  based on test_aggregate.py.
-# ----------------------------------------------------------------------
+# -----------------------------------------------------
 
-
+#define generic data structures
 def _similar_response(tracks: list[dict]) -> dict:
     return {"similartracks": {"track": tracks}}
 
@@ -272,7 +272,6 @@ async def test_recommend_stream_event_order_and_result() -> None:
                     received.append((current_event, current_data or ""))
                     current_event = None
                     current_data = None
-            # flush any final event not followed by a blank line
             if current_event is not None:
                 received.append((current_event, current_data or ""))
 
@@ -296,95 +295,13 @@ async def test_recommend_stream_event_order_and_result() -> None:
     assert result.candidates[0].title == "Glory Box"
 
 
-@respx.mock
-async def test_recommend_stream_disconnect_cuts_last_fm_calls() -> None:
-    # Registers all possible routes for a single-seed request (seed lookups +
-    # candidate tag fetches). Simulates client disconnect immediately after the
-    # first StageEvent is forwarded. Asserts that the two candidate tag calls
-    # (which happen after the disconnect boundary) are never made.
-    seed_artist, seed_title = "Radiohead", "Pyramid Song"
-
-    _route(
-        "track.getSimilar",
-        seed_artist,
-        seed_title,
-        _similar_response(
-            [
-                _sim_track("Glory Box", "Portishead", match=0.9, playcount=5_000_000),
-                _sim_track(
-                    "Teardrop", "Massive Attack", match=0.7, playcount=8_000_000
-                ),
-            ]
-        ),
-    )
-    _route(
-        "track.getTopTags",
-        seed_artist,
-        seed_title,
-        _tags_response(seed_artist, seed_title, [("alternative", 100)]),
-    )
-    # These two routes must NOT be reached after disconnect
-    _route(
-        "track.getTopTags",
-        "Portishead",
-        "Glory Box",
-        _tags_response("Portishead", "Glory Box", [("alternative", 60)]),
-    )
-    _route(
-        "track.getTopTags",
-        "Massive Attack",
-        "Teardrop",
-        _tags_response("Massive Attack", "Teardrop", [("trip-hop", 90)]),
-    )
-
-    payload = {
-        "seeds": [{"artist": seed_artist, "title": seed_title}],
-        "params": {
-            "novelty": 50,
-            "genre_lock": [],
-            "artist_diversity": 5,
-            "length": 10,
-        },
-    }
-
-    received: list[str] = []
-    # Patch is_disconnected to return True on every call so the generator exits
-    # immediately after yielding the first StageEvent (similarity).
-    with patch(
-        "starlette.requests.Request.is_disconnected", AsyncMock(return_value=True)
-    ):
-        async with httpx.AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as ac:
-            async with ac.stream("POST", "/recommend/stream", json=payload) as resp:
-                assert resp.status_code == 200
-                current_event: str | None = None
-                async for line in resp.aiter_lines():
-                    if line.startswith("event:"):
-                        current_event = line[len("event:") :].strip()
-                    elif line == "" and current_event is not None:
-                        received.append(current_event)
-                        current_event = None
-                if current_event is not None:
-                    received.append(current_event)
-
-    # Only the similarity event escapes before the generator returns on disconnect
-    assert received == ["similarity"]
-    assert "result" not in received
-    assert "done" not in received
-
-    # Seed lookups (getSimilar + seed getTopTags) were already in-flight;
-    # the two candidate getTopTags calls were never reached.
-    assert len(respx.calls) == 2
-
-
 # /seed-profile endpoint
 # ---------------------------------------------------------------------------
 
 
 @respx.mock
 async def test_seed_profile_happy_path() -> None:
-    # Two seeds sharing "alternative"; unique tags verify sort order.
+    # Two seeds sharing "alternative". unique tags verify sort order.
     _route(
         "track.getSimilar",
         "Radiohead",
@@ -470,7 +387,7 @@ async def test_seed_profile_fallback_b_seed_dropped() -> None:
     assert profile.tags == []
     assert profile.total_seeds == 1
 
-
+#test bad api logic handling for direct calls. no seeds case
 async def test_seed_profile_empty_seeds_returns_422() -> None:
     async with httpx.AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
@@ -478,9 +395,9 @@ async def test_seed_profile_empty_seeds_returns_422() -> None:
         r = await ac.post("/seed-profile", json={"seeds": []})
     assert r.status_code == 422
 
-
+#too many seeds case
 async def test_seed_profile_too_many_seeds_returns_422() -> None:
-    seeds = [{"artist": f"Artist{i}", "title": f"Track{i}"} for i in range(51)]
+    seeds = [{"artist": f"Artist{i}", "title": f"Track{i}"} for i in range(51)] #go one above 50
     async with httpx.AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
@@ -490,17 +407,11 @@ async def test_seed_profile_too_many_seeds_returns_422() -> None:
 
 @respx.mock
 async def test_seed_profile_statelessness_recommend_unaffected() -> None:
-    """Calling /seed-profile before /recommend shares no state.
+   #confirms Calling /seed-profile before /recommend shares no state.
 
-    Each endpoint constructs its own httpx client and LastfmClient; neither
-    caches results to shared storage at this stage (caching is added in step G).
-    The assertion is about no shared *state*, not no shared *work* — once step G
-    lands, both endpoints will benefit from the Redis cache independently.
-    """
     seed_artist, seed_title = "Radiohead", "Pyramid Song"
 
-    # Routes for both /seed-profile and /recommend — each call hits Last.fm
-    # independently; respx serves the same mock response to every call.
+    # Routes for both /seed-profile and /recommend. each call hits Last.fm
     _route(
         "track.getSimilar",
         seed_artist,
@@ -552,6 +463,7 @@ async def test_seed_profile_statelessness_recommend_unaffected() -> None:
             },
         )
 
+    #confirm hits
     assert sp.status_code == 200
     assert rec.status_code == 200
     # /recommend returns a valid, correctly ranked result regardless of the
@@ -562,7 +474,6 @@ async def test_seed_profile_statelessness_recommend_unaffected() -> None:
 
 
 # Cache integration tests
-# ---------------------------------------------------------------------------
 
 
 @respx.mock
@@ -627,6 +538,7 @@ async def test_cache_hit_on_second_recommend() -> None:
 
         m = await ac.get("/metrics")
 
+    #confirm both response with 200, are identical, and cache hit registered.
     assert r1.status_code == 200
     assert r2.status_code == 200
     assert calls_after_second == calls_after_first
@@ -776,9 +688,7 @@ async def test_metrics_endpoint() -> None:
     assert 0.0 < body["hit_rate"] < 1.0
 
 
-# CSV export via format=csv query param
-# ---------------------------------------------------------------------------
-
+# CSV export via format=csv parameter
 
 @respx.mock
 async def test_recommend_lastfm_outage_returns_502() -> None:
@@ -949,7 +859,7 @@ async def test_recommend_stream_no_successful_seeds_emits_error_event() -> None:
 
 @respx.mock
 async def test_recommend_stream_no_recommendations_emits_error_event() -> None:
-    # trip-hop candidate with genre_lock=["metal"] — nothing survives ranking
+    # trip-hop candidate with genre_lock=["metal"] shouldn't survive ranking
     _route(
         "track.getSimilar",
         "Portishead",

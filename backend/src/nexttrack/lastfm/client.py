@@ -30,7 +30,7 @@ class TopTagsResult:
 
 
 class LastfmClient:
-    # REMEMBER api key is not exposed. requires an individual's key in a separate env file.
+    # REMEMBER api key is not exposed. requires an individual's key in the env file.
     def __init__(
         self,
         client: httpx.AsyncClient,
@@ -40,7 +40,7 @@ class LastfmClient:
         self._client = client
         self._api_key = api_key
         self._cache = cache
-        self._request_times: deque[float] = deque(maxlen=_RATE_LIMIT)
+        self._request_times: deque[float] = deque(maxlen=_RATE_LIMIT) #fifth most recent assessed
 
     async def _fetch(self, **params) -> dict:
         # Enforce a reate limited requests/second via sliding-window throttle
@@ -139,7 +139,7 @@ class LastfmClient:
         data = await self._fetch(method="track.search", track=query, limit=limit)
         raw = data.get("results", {}).get("trackmatches", {}).get("track", [])
         if isinstance(raw, dict):
-            raw = [raw]
+            raw = [raw] #coerce the data --based on Last.fm API syntax
         elif not isinstance(raw, list):
             raw = []
 
@@ -168,6 +168,8 @@ class LastfmClient:
     def _parse_tags(raw: list[dict]) -> list[dict]:
         return [{"name": t["name"], "count": int(t["count"])} for t in raw]
 
+    #NOTE: this method to extract album art is pretty much dead because of Last.fm changes to their API restricting image use.
+    #All images in typeahead will result in template "star" album art image.
     @staticmethod
     def _parse_search_track(t: dict) -> dict:
         images = {
@@ -176,7 +178,7 @@ class LastfmClient:
             if "#text" in img  # deal with images
         }
         image_url: str | None = None
-        for size in ("extralarge", "large", "medium", "small"):
+        for size in ("extralarge", "large", "medium", "small"): #attempted laddering for image return
             url = images.get(size, "")
             if url:
                 image_url = url

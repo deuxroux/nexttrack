@@ -3,10 +3,7 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Repo-root .env, resolved relative to this file so cwd does not matter.
-# Inside the Docker image src/ is copied to /app/src, so this path will not
-# exist there — that is intentional: the container gets its config from real
-# environment variables injected by Compose.
+# Repo-root .env. Force resolve relative to this file so cwd does not matter.
 _ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
 
 
@@ -17,17 +14,18 @@ class Settings(BaseSettings):
     app_name: str = "NextTrack"
     app_version: str = "0.1"
     redis_url: str = "redis://localhost:6379/0"
-    cache_ttl_lastfm_seconds: int = 14 * 24 * 3600  # days * hours * seconds
+    cache_ttl_lastfm_seconds: int = 14 * 24 * 3600  # 14 day TTL. expressed as days * hours * seconds
 
     #  /resolve-spotify-url returns 503 if either field is empty.
     spotify_client_id: str = ""
     spotify_client_secret: str = ""
     cache_ttl_spotify_seconds: int = 14 * 24 * 3600
 
-    # comma-separated list for local host origins. can add "[...], http://localhost:3000"
+    # comma-separated list for local host origins.
+    #IF ADDING, check .env too and update as necessary.
     cors_allowed_origins: str = "http://localhost:5173"
 
-    # extra='ignore' lets the root .env carry VITE_* frontend keys without failing validation
+    # extra='ignore' lets the root .env carry VITE_* key.
     model_config = SettingsConfigDict(
         env_file=_ENV_FILE, env_file_encoding="utf-8", extra="ignore"
     )
@@ -43,5 +41,4 @@ class Settings(BaseSettings):
 
 @lru_cache  # save so this doesn't reparse every time.
 def get_settings() -> Settings:
-    # NOTE flags error statically but doesn't actually get built at runtime so ignored.
     return Settings()  # type: ignore[call-arg]

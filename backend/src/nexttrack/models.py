@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 
-# data representations in this file
+# data structure shapes and reps across the app found here.
 
 
 class Track(BaseModel):

@@ -14,7 +14,7 @@ from nexttrack.models import (
 )
 
 # test fixtures
-_NOW = datetime(2026, 7, 12, 14, 30, 0, tzinfo=timezone.utc)
+_NOW = datetime(2026, 7, 12, 14, 30, 0, tzinfo=timezone.utc) #set date time to be checked against
 
 _EXPECTED_COLUMNS = [
     "rank",
@@ -65,7 +65,6 @@ def _seeds() -> list[Track]:
 
 
 def _parse_csv(csv_body: str) -> tuple[list[str], list[list[str]]]:
-    """Split comment lines from CSV data and parse the data rows."""
     data_lines = [line for line in csv_body.splitlines() if not line.startswith("#")]
     reader = csv.reader(data_lines)
     header = next(reader)
@@ -73,21 +72,11 @@ def _parse_csv(csv_body: str) -> tuple[list[str], list[list[str]]]:
     return header, rows
 
 
-# ---------------------------------------------------------------------------
-# Column contract
-# ---------------------------------------------------------------------------
-
-
+# Column contractcorrect and  Header comment rows correct
 def test_columns_exact_match():
     _, csv_body = render_csv(_result(), _seeds(), _params(), _NOW)
     header, _ = _parse_csv(csv_body)
     assert header == _EXPECTED_COLUMNS
-
-
-# ---------------------------------------------------------------------------
-# Header comment rows
-# ---------------------------------------------------------------------------
-
 
 def test_header_comments_present():
     _, csv_body = render_csv(_result(), _seeds(), _params(), _NOW)
@@ -120,10 +109,7 @@ def test_genre_lock_in_header():
     assert "jazz" in comments
 
 
-# ---------------------------------------------------------------------------
-# Filename format verified with date information
-
-
+# Filename format contains accurate date information
 def test_filename_format():
     filename, _ = render_csv(_result(), _seeds(), _params(), _NOW)
     assert re.match(r"^nexttrack_\d{4}-\d{2}-\d{2}_nov\d+_div\d+\.csv$", filename)
@@ -138,10 +124,7 @@ def test_filename_encodes_params():
     assert "2026-07-12" in filename
 
 
-# ---------------------------------------------------------------------------
-# Search URLs. Assume spotify and apple music based on current correct search terms.
-
-
+# Search URLs populatd. Assume spotify and apple music based on current correct search terms.
 def test_spotify_search_url_populated():
     _, csv_body = render_csv(_result(), _seeds(), _params(), _NOW)
     header, rows = _parse_csv(csv_body)
@@ -163,7 +146,6 @@ def test_apple_music_search_url_populated():
 
 
 def test_search_urls_are_ascii_encoded():
-    # we can't have hanging spaces-- will mess up return url.
     params = _params()
     candidate = _candidate(artist="Sigur Ros", title="Ara batur")
     result = RecommendationResult(
@@ -195,7 +177,6 @@ def test_rank_column_is_sequential():
 
 # ---------------------------------------------------------------------------
 # StringIO check. Hypothesis library used to check at bounds of system.
-
 
 @given(
     novelty=st.integers(min_value=0, max_value=100),

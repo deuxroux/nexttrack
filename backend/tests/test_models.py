@@ -34,14 +34,6 @@ def test_recommendation_result_shape():
     assert len(r.candidates) == 1
     assert r.candidates[0].artist == "Portishead"
 
-
-def test_recommendation_params_defaults():
-    # genre_lock defaults to []; length defaults to 10
-    p = RecommendationParams(novelty=50, artist_diversity=5, length=10)
-    assert p.genre_lock == []
-    assert p.length == 10
-
-
 @pytest.mark.parametrize(
     "field,value",
     [

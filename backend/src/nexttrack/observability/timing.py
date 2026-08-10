@@ -31,7 +31,7 @@ class StageTimings:
                 # get "percentiles" via quantiles method
                 qs = quantiles(data, n=100, method="inclusive")
                 result[stage] = {
-                    "p50": qs[49],
+                    "p50": qs[49], #99 indices returned so appears off by 1
                     "p95": qs[94],
                     "max": float(max(data)),
                     "n": float(n),

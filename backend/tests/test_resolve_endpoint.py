@@ -1,5 +1,4 @@
-# troubleshooting test suite to confirm all .env tokens that the user populates are working corrextly.
-
+# endpoint testing of spotify URL resolver's HTTP contract
 import pytest
 import httpx
 import respx
@@ -11,11 +10,12 @@ from asgi_lifespan import LifespanManager
 from nexttrack.api import app
 from nexttrack.config import get_settings
 
-# test fixtures with known results
-TRACK_ID = "4iV5W9uYEdYUVa79Axb7Rh"
+# test fixtures. remember that the track ID does not actually matter since it gets mocked
+TRACK_ID = "55q3Ro66yXWi9rsEddeEN4"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
 TRACK_URL = f"https://api.spotify.com/v1/tracks/{TRACK_ID}"
 
+#mock logic
 _TOKEN_BODY = {"access_token": "tok_test", "token_type": "Bearer", "expires_in": 3600}
 _TRACK_BODY = {
     "id": TRACK_ID,
@@ -38,9 +38,8 @@ async def _override_settings(monkeypatch):
     get_settings.cache_clear()
 
 
-# Happy path
+# Happy path0-- tokens work and return
 # ---------------------------------------------------------------------
-
 
 @respx.mock
 async def test_resolve_happy_path():

@@ -10,6 +10,7 @@ class SpotifyUnavailable(Exception):
     """Raised when Spotify is unreachable"""
 
 
+#open client for url resolution
 class SpotifyClient:
     def __init__(
         self,
@@ -77,6 +78,7 @@ class SpotifyClient:
         except httpx.HTTPError as exc:
             raise SpotifyUnavailable(f"track request failed: {exc}") from exc
 
+        #check HTTP status codes and deal with accordingly
         if resp.status_code == 401 and retry_auth:
             self._access_token = None
             self._expires_at = 0.0

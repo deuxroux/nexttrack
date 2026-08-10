@@ -26,9 +26,7 @@ async def _override_settings(monkeypatch):
     get_settings.cache_clear()
 
 
-# Routes: (method, path, json_payload_or_None)
-# Payloads are chosen to get a fast response (422/400/503) without needing
-# external HTTP mocks, proving cookies aren't set on any code path.
+# Payloads are chosen to get a fast response (422/400/503)
 _ROUTES = [
     ("GET", "/health", None),
     ("GET", "/metrics", None),

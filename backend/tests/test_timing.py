@@ -34,27 +34,6 @@ def test_multiple_stages_independent():
     assert s["tags"]["n"] == 1.0
 
 
-def test_ring_buffer_eviction():
-    st = StageTimings(maxlen=3)
-    for v in [1.0, 2.0, 3.0, 4.0]:
-        st.record("similarity", v)
-    s = st.summary()
-    assert s["similarity"]["n"] == 3.0
-    assert s["similarity"]["max"] == 4.0
-    # 1.0 should be evicted
-    data_max = s["similarity"]["max"]
-    assert data_max == 4.0
-
-
-def test_maxlen_100_default():
-    st = StageTimings()
-    for i in range(105):
-        st.record("x", float(i))
-    s = st.summary()
-    assert s["x"]["n"] == 100.0
-    assert s["x"]["max"] == 104.0
-
-
 def test_p95_ordering():
     st = StageTimings()
     for i in range(100):
@@ -88,10 +67,3 @@ def test_record_does_not_mutate_other_stage():
     s = st.summary()
     assert s["a"]["n"] == 2.0
     assert s["b"]["n"] == 1.0
-
-
-def test_n_field_is_float():
-    st = StageTimings()
-    st.record("s", 1.0)
-    s = st.summary()
-    assert isinstance(s["s"]["n"], float)

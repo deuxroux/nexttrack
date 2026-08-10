@@ -7,7 +7,8 @@ from unittest.mock import AsyncMock, patch
 from nexttrack.cache import LastfmCache
 from nexttrack.spotify.client import SpotifyClient, SpotifyUnavailable
 
-TRACK_ID = "4iV5W9uYEdYUVa79Axb7Rh"
+#seed with radiohead info -- track ID is not important since we mock the body.
+TRACK_ID = "55q3Ro66yXWi9rsEddeEN4"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
 TRACK_URL = f"https://api.spotify.com/v1/tracks/{TRACK_ID}"
 
@@ -21,15 +22,12 @@ _TRACK_BODY = {
 
 def _make_client() -> SpotifyClient:
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
-    cache = LastfmCache(fake_redis, ttl=30 * 24 * 3600)
+    cache = LastfmCache(fake_redis, ttl=30 * 24 * 3600) #NOTE testing ttl different than production
     http = httpx.AsyncClient()
     return SpotifyClient(http, "cid", "csecret", cache)
 
 
-# Token is receved?
-# ---------------------------------------------------------------------------
-
-
+#confirm token received
 @respx.mock
 async def test_token_acquired_on_first_call():
     respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json=_TOKEN_BODY))
@@ -50,18 +48,15 @@ async def test_token_reused_on_second_call():
 
     client = _make_client()
     await client.get_track(TRACK_ID)
-    calls_after_first = len(respx.calls)
+    calls_after_first = len(respx.calls) #index
 
-    # Second call hits Redis cache — no HTTP at all
+    # Second call hits Redis cache - should have no HTTP at all
     await client.get_track(TRACK_ID)
 
     assert len(respx.calls) == calls_after_first  # no new HTTP calls
 
 
-# 401 → forced token refresh, single retry
-# ---------------------------------------------------------------------------
-
-
+# 401 forced token refresh, confirm we try once more
 @respx.mock
 async def test_forced_refresh_on_401():
     token_count = 0
@@ -93,10 +88,7 @@ async def test_forced_refresh_on_401():
     assert track_count == 2  # first 401, then success
 
 
-# 429 status-- Retry-After sleep, single retry
-# ---------------------------------------------------------------------------
-
-
+# 429 status-- confirm Retry-After sleep, single retry
 @respx.mock
 async def test_retry_after_on_429():
     respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json=_TOKEN_BODY))
@@ -139,7 +131,6 @@ async def test_double_429_raises_spotify_unavailable():
 
 # check SpotifyUnavailable using mock values for statuses
 # --------------------------------------------------------------------
-
 
 @respx.mock
 async def test_5xx_on_track_raises_spotify_unavailable():

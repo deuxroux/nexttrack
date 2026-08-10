@@ -31,12 +31,13 @@ from nexttrack.pipeline.aggregate import aggregate_streaming, build_seed_profile
 from nexttrack.pipeline.rank import rank
 from nexttrack.spotify.client import SpotifyClient, SpotifyUnavailable
 from nexttrack.spotify.url import parse_track_id
+#NOTE: everything is imported because this file is the transport layer with no logic.
 
 logger = logging.getLogger(__name__)
 
-
+#lifespan manager is instantiation of cricial elements for api
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI): #initiate everything before any request
     settings = get_settings()
     http_client = httpx.AsyncClient(
         headers={"User-Agent": settings.user_agent},
@@ -63,12 +64,10 @@ async def lifespan(app: FastAPI):
         await http_client.aclose()
         await redis_client.aclose()
 
-
-app = FastAPI(title="NextTrack", version="0.1.0", lifespan=lifespan)
-
+app = FastAPI(title="NextTrack", version="0.1.0", lifespan=lifespan) #fastAPI uses lifespan magr.
+#ASGI middleware setup for request routing
 app.add_middleware(
-    CORSMiddleware,
-    # Read directly from env since required
+    CORSMiddleware, #allow frontend port access-- only real need for middleware.
     allow_origins=[
         o.strip()
         for o in os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:5173").split(
@@ -81,7 +80,7 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
-
+#human readable exception manager for errors.
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(
     _request: Request, exc: RequestValidationError
@@ -95,7 +94,7 @@ async def validation_exception_handler(
         content={"error": "Invalid request parameters", "details": messages},
     )
 
-
+#Contracts for each type of request
 class RecommendRequest(BaseModel):
     seeds: list[Track] = Field(..., min_length=1, max_length=50)
     params: RecommendationParams
@@ -117,7 +116,7 @@ class ErrorBody(BaseModel):
 class SeedErrorBody(ErrorBody):
     dropped_seeds: list[str]
 
-
+#declared error states, translated for modular use and readability
 _ERR_LASTFM = (
     "lastfm_unavailable",
     "Last.fm is not responding. Try again shortly.",
@@ -136,15 +135,14 @@ _ERR_NO_RECS = (
 def _error_payload(
     err: tuple[str, str], dropped_seeds: list[str] | None = None
 ) -> dict:
-    """Build the shared error body used by both /recommend (as JSON) and
-    /recommend/stream (as the SSE `error` event data)."""
+    # shared error body used by both /recommend (as JSON) and SSE error
     code, detail = err
     body: dict = {"error": code, "detail": detail}
     if dropped_seeds is not None:
         body["dropped_seeds"] = dropped_seeds
     return body
 
-
+#all declared routes and their expected http responses
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -211,6 +209,7 @@ async def seed_profile(
         },
     },
 )
+
 async def recommend(
     body: RecommendRequest,
     req: Request,
@@ -260,6 +259,7 @@ async def recommend(
             content=_error_payload(_ERR_NO_RECS, dropped),
         )
 
+    #for direct API call to return a CSV
     if output_format == "csv":
         filename, csv_body = render_csv(
             result, body.seeds, body.params, datetime.now(timezone.utc)
@@ -272,7 +272,7 @@ async def recommend(
 
     return result
 
-
+#/stream still calls rank and filter algorithms but does it in stages. TODO consolidate logic
 @app.post("/recommend/stream")
 async def recommend_stream(
     body: RecommendRequest,
@@ -303,6 +303,7 @@ async def recommend_stream(
                         return
                 else:
                     candidates, dropped = item
+        #because a full payload error cannot emerge when streaming, send an event error in the stream
         except httpx.HTTPError as exc:
             logger.warning("lastfm outage during /recommend/stream: %s", exc)
             yield {"event": "error", "data": json.dumps(_error_payload(_ERR_LASTFM))}
@@ -320,6 +321,7 @@ async def recommend_stream(
         result = rank(candidates, dropped, body.params)
 
         total_ms = sum(per_stage.values())
+        #deliver logger info on status for debugging
         logger.info(
             "recommend/stream complete stage_ms=%s total_ms=%.1f", per_stage, total_ms
         )

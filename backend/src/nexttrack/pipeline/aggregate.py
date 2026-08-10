@@ -10,7 +10,7 @@ def _norm_key(artist: str, title: str) -> tuple[str, str]:
 
 
 async def aggregate_streaming(
-    lf: LastfmClient, seeds: list[Track]
+    lf: LastfmClient, seeds: list[Track] #use lastfm client
 ) -> AsyncIterator[StageEvent | tuple[list[Candidate], list[str]]]:
     seed_tracks: dict[str, list[dict]] = {}
     sim_fallback: dict[str, str] = {}
@@ -19,14 +19,14 @@ async def aggregate_streaming(
     dropped_seeds: list[str] = []
     seeds_total = len(seeds)
 
-    # Phase 1: per-seed similarity + seed-tag lookups
+    # first get per-seed similarity; seed-tag lookups.
     for i, seed in enumerate(seeds, 1):
         seed_key = f"{seed.artist}/{seed.title}"
         t0 = time.monotonic()
 
         sim_result = await lf.get_similar_tracks(seed.artist, seed.title)
 
-        # Req 2.07 (Fallback B): drop seed if both primary and artist fallback give nothing
+        # drop seed if both primary and artist fallback give nothing
         if sim_result.fallback_used and not sim_result.tracks:
             dropped_seeds.append(seed_key)
             yield StageEvent(
@@ -54,7 +54,7 @@ async def aggregate_streaming(
             elapsed_ms=(time.monotonic() - t0) * 1000,
         )
 
-    # Phase 2: dedup by normalised (artist, title), summing match scores
+    # Then dedup by normalised (artist, title), summing match scores
     t0 = time.monotonic()
     seed_norm_keys: set[tuple[str, str]] = {
         _norm_key(seed.artist, seed.title) for seed in seeds
@@ -79,9 +79,8 @@ async def aggregate_streaming(
                 seed_key, 0.0
             ) + float(t["match"])
 
-    # Phase 3: fetch candidate top tags; compute matched_tags, tag_overlap,
-    # novelty_bonus, and explanations. Timer started in Phase 2 continues here
-    # so elapsed_ms on the "tags" event covers both dedup and candidate I/O.
+    # get candidate top tags; compute matched_tags, tag_overlap,etc.
+    #  Timer started in continues here so elapsed_ms covers whole workflow
     max_playcount = max((e["playcount"] for e in pool.values()), default=1)
     pool_size = len(pool)
 
@@ -93,12 +92,12 @@ async def aggregate_streaming(
         tag_overlap = len(matched) / len(seed_tag_profile) if seed_tag_profile else 0.0
         novelty_bonus = 1.0 - entry["playcount"] / max_playcount
 
-        # Rebuild contributing_seeds from seed_matches for the Candidate field
+        # Extract contributing_seeds
         seed_matches: dict[str, float] = entry["seed_matches"]
         contributing_seeds = list(seed_matches.keys())
         primary_seed = max(seed_matches, key=seed_matches.__getitem__)
 
-        # Req 2.08: structured explanation before any fallback notes
+        # format into structured explanation before any fallback notes
         explanation: list[str] = [f"top seed: {primary_seed}"]
         if matched:
             explanation.append(f"matched tags: {', '.join(matched)}")
@@ -110,6 +109,7 @@ async def aggregate_streaming(
                     explanation.append(note)
                     seen_notes.add(note)
 
+        #final score to be adjusted in rank.py
         candidates.append(
             Candidate(
                 artist=entry["artist"],

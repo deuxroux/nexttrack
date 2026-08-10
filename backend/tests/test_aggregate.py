@@ -535,7 +535,7 @@ async def test_aggregate_streaming_event_ordering():
             else:
                 final = item
 
-    # Two similarity events (one per seed) then one tags event — in that order
+    # Two similarity events (one per seed) then one tags event; in that order
     assert len(events) == 3
     sim_events = [e for e in events if e.stage == "similarity"]
     tags_events = [e for e in events if e.stage == "tags"]
@@ -548,7 +548,7 @@ async def test_aggregate_streaming_event_ordering():
     assert sim_events[1].seeds_done == 2
     assert sim_events[1].seeds_total == 2
 
-    # tags event reflects deduplicated pool size (3 unique candidates)
+    # tags event shows 3 unique candidates)
     assert tags_events[0].candidates == 3
 
     # tags event arrives after both similarity events
@@ -623,7 +623,7 @@ async def test_build_seed_profile_shared_tag_has_seed_count_two() -> None:
     assert tag_map["art rock"] == 1
     assert tag_map["folk"] == 1
 
-    # sort order: seed_count desc, then alpha on name
+    # sort order: seed_count descending
     assert profile.tags[0] == TagCount(name="alternative", seed_count=2)
     assert profile.tags[1] == TagCount(name="art rock", seed_count=1)
     assert profile.tags[2] == TagCount(name="folk", seed_count=1)
@@ -631,9 +631,7 @@ async def test_build_seed_profile_shared_tag_has_seed_count_two() -> None:
 
 @respx.mock
 async def test_build_seed_profile_fallback_b_seed_dropped() -> None:
-    # Bad seed has both track.getSimilar and artist.getSimilar return empty (Fallback B).
-    # It must appear in dropped_seeds, contribute no tags, and total_seeds
-    # must reflect the original input count rather than the post-drop count.
+    # Bad seed has both track.getSimilar and artist.getSimilar return empty.
     good_seed = Track(artist="Radiohead", title="Pyramid Song")
     bad_seed = Track(artist="Zxqvbw", title="Ploknmf")
 
@@ -672,8 +670,7 @@ async def test_build_seed_profile_fallback_b_seed_dropped() -> None:
 
 @respx.mock
 async def test_build_seed_profile_all_succeed_dropped_seeds_empty() -> None:
-    # When every seed resolves successfully, dropped_seeds is empty and
-    # total_seeds matches the input length exactly.
+    # When every seed resolves successfully, dropped_seeds is empty; length matches must be correct
     _route(
         "track.getSimilar",
         "Radiohead",
@@ -716,5 +713,6 @@ async def test_build_seed_profile_all_succeed_dropped_seeds_empty() -> None:
             LastfmClient(client, API_KEY), [SEED_A, SEED_B]
         )
 
+    #confirm no dropped seeds and only 2 seeds provided.
     assert profile.dropped_seeds == []
     assert profile.total_seeds == 2

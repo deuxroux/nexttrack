@@ -83,7 +83,7 @@ async def test_get_similar_tracks_fallback_on_empty():
 
 @respx.mock
 async def test_get_similar_tracks_fallback_empty_artists_returns_empty():
-    # confirm f artist.getSimilar also returns nothing, result is empty but fallback_used = true.
+    # confirm artist.getSimilar also returns nothing, result is empty but fallback_used = true.
     respx.get(BASE_URL, params={"method": "track.getSimilar"}).mock(
         return_value=httpx.Response(200, json={"similartracks": {"track": []}})
     )
@@ -175,9 +175,6 @@ async def test_get_top_tags_fallback_empty_artist_tags_returns_empty():
 
 
 # Confirm Rate limiter enforces <=5 req/s
-# ---------------------------------------------------------------------------
-
-
 @respx.mock
 @pytest.mark.parametrize("n_requests", [6])
 async def test_rate_limit_enforces_five_per_second(n_requests: int):
@@ -202,8 +199,6 @@ async def test_rate_limit_enforces_five_per_second(n_requests: int):
 
 # Confirm Cache  features
 # ---------------------------------------------------------------------------
-
-
 # create fake cache
 @pytest.fixture
 async def cache() -> LastfmCache:
@@ -248,7 +243,7 @@ async def test_cache_hit_skips_lastfm_fetch(cache: LastfmCache) -> None:
 async def test_cache_hit_after_similar_fallback_preserves_metadata(
     cache: LastfmCache,
 ) -> None:
-    # confirm if track.getSimilar empty → artist.getSimilar fallback fires and is cached.
+    # confirm if track.getSimilar empty, artist.getSimilar fallback fires and is cached.
     respx.get(BASE_URL, params={"method": "track.getSimilar"}).mock(
         return_value=httpx.Response(200, json={"similartracks": {"track": []}})
     )
@@ -290,7 +285,7 @@ async def test_cache_hit_after_similar_fallback_preserves_metadata(
 async def test_cache_hit_after_toptags_fallback_preserves_metadata(
     cache: LastfmCache,
 ) -> None:
-    # confirm if track.getTopTags empty → artist.getTopTags fallback fires and is cached.
+    # confirm if track.getTopTags empty, artist.getTopTags fallback fires and is cached.
     # Second call returns from cache
     respx.get(BASE_URL, params={"method": "track.getTopTags"}).mock(
         return_value=httpx.Response(200, json={"toptags": {"tag": []}})
@@ -319,7 +314,7 @@ async def test_cache_hit_after_toptags_fallback_preserves_metadata(
     assert cache.hits >= 1
 
 
-# if disabled path works
+# confirm if disabled path works
 @respx.mock
 async def test_cache_none_disables_caching_cleanly() -> None:
     route = respx.get(BASE_URL).mock(

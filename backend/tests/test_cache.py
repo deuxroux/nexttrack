@@ -12,9 +12,9 @@ async def cache() -> LastfmCache:
 
 # confirm indexing is correct
 async def test_get_miss_returns_none_and_increments_misses(cache: LastfmCache) -> None:
-    assert await cache.get("lastfm:v1:similar:foo:bar") is None
+    assert await cache.get("lastfm:v1:similar:foo:bar") is None #foobar used as dummy code
     assert cache.misses == 1
-    assert cache.hits == 0
+    assert cache.hits == 0 #no hits for this param should exist
 
 
 # confirm allocation

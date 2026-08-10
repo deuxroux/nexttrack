@@ -2,7 +2,7 @@ from nexttrack.models import Candidate, RecommendationParams, RecommendationResu
 from nexttrack.pipeline.rank import rank
 
 
-# confirm a recommendation is produced
+# confirm a recommendation is produced (end to end)
 def test_rank_returns_recommendation_result():
     c = Candidate(
         artist="Portishead",

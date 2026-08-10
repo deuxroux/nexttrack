@@ -3,11 +3,11 @@ from hypothesis import strategies as st
 
 from nexttrack.spotify.url import parse_track_id
 
-# A real-shaped but synthetic track ID (22 base62 chars)
-_SAMPLE_ID = "4iV5W9uYEdYUVa79Axb7Rh"
+# A real-shape but madeup track ID (22 base62 chars)
+_SAMPLE_ID = "6iYpepYJRNqOSjQFQNL3vv"
 
 _BASE62 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-_valid_id = st.text(alphabet=_BASE62, min_size=22, max_size=22)
+_valid_id = st.text(alphabet=_BASE62, min_size=22, max_size=22) #construct dynamically a suitable string-- for hypothesis testing
 
 
 #  happy-path cases
@@ -44,7 +44,7 @@ def test_wrong_domain_rejected():
 
 
 def test_random_string_rejected():
-    assert parse_track_id("not a url at all") is None
+    assert parse_track_id("This is a fake string") is None
 
 
 def test_empty_string_rejected():
@@ -61,10 +61,8 @@ def test_long_track_id_rejected():
         parse_track_id(f"https://open.spotify.com/track/{_SAMPLE_ID}moreChars") is None
     )
 
-
 # Hypothesis property tests for bounds
 # -------------------------------------------------------------------
-
 
 @given(
     track_id=_valid_id,

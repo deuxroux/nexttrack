@@ -5,7 +5,7 @@ from nexttrack.models import Candidate, RecommendationParams, RecommendationResu
 W_SIM: float = 1.0
 W_TAG: float = 0.5
 
-_W_TOTAL: float = W_SIM + W_TAG  # normalisation denominator for relevance
+_W_TOTAL: float = W_SIM + W_TAG  # normailzed denominator for relevance
 
 
 def rank(
@@ -27,7 +27,7 @@ def rank(
     # --> ORIGINAL relevance = (W_SIM*norm_sim + W_TAG*tag_overlap) / W_TOTAL
     #  with normalization norm_sim  = summed_similarity / max_sim  (max-normalised across pool)
     alpha = params.novelty / 100.0
-    max_sim = max((c.summed_similarity for c in pool), default=1.0) or 1.0
+    max_sim = max((c.summed_similarity for c in pool), default=1.0) or 1.0 #guards against empty pool or all zeroes
     scored: list[Candidate] = []
     for c in pool:
         norm_sim = c.summed_similarity / max_sim
@@ -36,7 +36,7 @@ def rank(
         scored.append(c.model_copy(update={"final_score": score}))
     scored.sort(key=lambda c: c.final_score, reverse=True)
 
-    # artist diversity cap applied after sort
+    # artist diversity cap applied after sort. this is as a filter.
     counts: dict[str, int] = {}
     diverse: list[Candidate] = []
     for c in scored:
@@ -46,7 +46,7 @@ def rank(
             counts[key] = counts.get(key, 0) + 1
     scored = diverse
 
-    # Fallback D: notice when the pool couldn't fill the requested length
+    # Fallback: flag when the pool couldn't fill the requested length
     pool_exhausted = len(scored) < params.length
 
     return RecommendationResult(
