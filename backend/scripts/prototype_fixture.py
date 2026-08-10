@@ -1,3 +1,4 @@
+#This script is regen of test fixture json
 import asyncio
 import json
 import os

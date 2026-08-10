@@ -56,8 +56,8 @@
   /* fill CSS custom via inline style */
   background: linear-gradient(to right,
       var(--accent) 0%,
-      var(--accent) var(--fill, 50%),
-      var(--border-2) var(--fill, 50%),
+      var(--accent) var(--fill, 0%),
+      var(--border-2) var(--fill, 0%),
       var(--border-2) 100%);
   outline: none;
   cursor: pointer;

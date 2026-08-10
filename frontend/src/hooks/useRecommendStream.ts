@@ -1,6 +1,7 @@
 import { fetchEventSource } from "@microsoft/fetch-event-source";
 import { useEffect, useRef, useState } from "react";
-import { mapRecommendError } from "../api/errors";
+import { API_BASE } from "../api/client";
+import { mapRecommendError, mapRecommendErrorCode } from "../api/errors";
 import type { components } from "../api/schema";
 
 type Track = components["schemas"]["Track"];
@@ -45,7 +46,7 @@ export function useRecommendStream(): RecommendStreamHandle {
     setStreaming(true);
 
     fetchEventSource(
-      `${import.meta.env.VITE_API_BASE_URL}/recommend/stream`,
+      `${API_BASE}/recommend/stream`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -85,6 +86,14 @@ export function useRecommendStream(): RecommendStreamHandle {
               // no "ranking" server event — transition client-side after tags
               setTimeout(() => setProgress("Ranking…"), 50);
               break;
+            case "error": {
+              const d = JSON.parse(ev.data) as { error?: string };
+              setError(mapRecommendErrorCode(d.error));
+              setProgress(null);
+              setStreaming(false);
+              ctrl.abort();   // stop before the trailing `done` event arrives
+              break;
+            }
             case "result": {
               const r = JSON.parse(ev.data) as RecommendationResult;
               setResult(r);
@@ -112,7 +121,7 @@ export function useRecommendStream(): RecommendStreamHandle {
           setStreaming(false);
         },
       },
-    );
+    ).catch(() => { /* terminal errors already surfaced in state */ });
   }
 
   return { result, progress, error, streaming, run };

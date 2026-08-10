@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { API_BASE } from "../api/client";
 import { mapRecommendError } from "../api/errors";
 import type { components } from "../api/schema";
 
@@ -20,7 +21,7 @@ export function useCsvExport(): CsvExportHandle {
     setError(null);
 
     const res = await fetch(
-      `${import.meta.env.VITE_API_BASE_URL}/recommend?format=csv`,
+      `${API_BASE}/recommend?format=csv`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

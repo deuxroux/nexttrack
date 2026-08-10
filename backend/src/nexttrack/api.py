@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -67,8 +68,7 @@ app = FastAPI(title="NextTrack", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    # Read directly from env so importing this module never triggers Settings
-    # validation (which requires LASTFM_API_KEY) before fixtures can set it.
+    # Read directly from env since required
     allow_origins=[
         o.strip()
         for o in os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:5173").split(
@@ -116,6 +116,33 @@ class ErrorBody(BaseModel):
 
 class SeedErrorBody(ErrorBody):
     dropped_seeds: list[str]
+
+
+_ERR_LASTFM = (
+    "lastfm_unavailable",
+    "Last.fm is not responding. Try again shortly.",
+)
+_ERR_NO_SEEDS = (
+    "no_successful_seeds",
+    "None of the provided seed tracks could be resolved.",
+)
+_ERR_NO_RECS = (
+    "no_recommendations",
+    "No candidates survived ranking and filtering. "
+    "Try loosening genre_lock or novelty settings.",
+)
+
+
+def _error_payload(
+    err: tuple[str, str], dropped_seeds: list[str] | None = None
+) -> dict:
+    """Build the shared error body used by both /recommend (as JSON) and
+    /recommend/stream (as the SSE `error` event data)."""
+    code, detail = err
+    body: dict = {"error": code, "detail": detail}
+    if dropped_seeds is not None:
+        body["dropped_seeds"] = dropped_seeds
+    return body
 
 
 @app.get("/health")
@@ -211,21 +238,14 @@ async def recommend(
         logger.warning("lastfm outage during /recommend: %s", exc)
         return JSONResponse(
             status_code=502,
-            content={
-                "error": "lastfm_unavailable",
-                "detail": "Last.fm is not responding. Try again shortly.",
-            },
+            content=_error_payload(_ERR_LASTFM),
         )
 
     # if zero successful seeds: every seed hit a dead end
     if len(dropped) == len(body.seeds):
         return JSONResponse(
             status_code=422,
-            content={
-                "error": "no_successful_seeds",
-                "detail": "None of the provided seed tracks could be resolved.",
-                "dropped_seeds": dropped,
-            },
+            content=_error_payload(_ERR_NO_SEEDS, dropped),
         )
 
     result = rank(candidates, dropped, body.params)
@@ -237,14 +257,7 @@ async def recommend(
     if not result.candidates:
         return JSONResponse(
             status_code=422,
-            content={
-                "error": "no_recommendations",
-                "detail": (
-                    "No candidates survived ranking and filtering. "
-                    "Try loosening genre_lock or novelty settings."
-                ),
-                "dropped_seeds": dropped,
-            },
+            content=_error_payload(_ERR_NO_RECS, dropped),
         )
 
     if output_format == "csv":
@@ -278,15 +291,31 @@ async def recommend_stream(
         )
         per_stage: dict[str, float] = {}
 
-        async for item in aggregate_streaming(lf, body.seeds):
-            if isinstance(item, StageEvent):
-                stage_timings.record(item.stage, item.elapsed_ms)
-                per_stage[item.stage] = per_stage.get(item.stage, 0.0) + item.elapsed_ms
-                yield {"event": item.stage, "data": item.model_dump_json()}
-                if await req.is_disconnected():
-                    return
-            else:
-                candidates, dropped = item
+        try:
+            async for item in aggregate_streaming(lf, body.seeds):
+                if isinstance(item, StageEvent):
+                    stage_timings.record(item.stage, item.elapsed_ms)
+                    per_stage[item.stage] = (
+                        per_stage.get(item.stage, 0.0) + item.elapsed_ms
+                    )
+                    yield {"event": item.stage, "data": item.model_dump_json()}
+                    if await req.is_disconnected():
+                        return
+                else:
+                    candidates, dropped = item
+        except httpx.HTTPError as exc:
+            logger.warning("lastfm outage during /recommend/stream: %s", exc)
+            yield {"event": "error", "data": json.dumps(_error_payload(_ERR_LASTFM))}
+            yield {"event": "done", "data": "{}"}
+            return
+
+        if len(dropped) == len(body.seeds):
+            yield {
+                "event": "error",
+                "data": json.dumps(_error_payload(_ERR_NO_SEEDS, dropped)),
+            }
+            yield {"event": "done", "data": "{}"}
+            return
 
         result = rank(candidates, dropped, body.params)
 
@@ -294,6 +323,14 @@ async def recommend_stream(
         logger.info(
             "recommend/stream complete stage_ms=%s total_ms=%.1f", per_stage, total_ms
         )
+
+        if not result.candidates:
+            yield {
+                "event": "error",
+                "data": json.dumps(_error_payload(_ERR_NO_RECS, dropped)),
+            }
+            yield {"event": "done", "data": "{}"}
+            return
 
         yield {"event": "result", "data": result.model_dump_json()}
         yield {"event": "done", "data": "{}"}

@@ -1,7 +1,6 @@
 __pycache__/
 .venv/
-backend/.env
-frontend/.env
+.env
 *.env.local
 *.pyc
 .pytest_cache/
@@ -13,8 +12,8 @@ CLAUDE.md
 dist/
 build/
 *.egg-info/
-.hypothesis
-.coverage
+.hypothesis/
+.coverage/
 htmlcov/
 
 .vscode/
@@ -34,6 +33,7 @@ pnpm-debug.log*
 # lint cache
 .eslintcache
 
+#frontend
 frontend/node_modules/
 frontend/dist/
 frontend/.env.*.local

@@ -869,6 +869,144 @@ async def test_recommend_genre_lock_no_matches_returns_422() -> None:
 
 
 @respx.mock
+async def test_recommend_stream_lastfm_outage_emits_error_event() -> None:
+    respx.get(BASE_URL).mock(side_effect=httpx.ConnectError("connection refused"))
+    payload = {
+        "seeds": [{"artist": "Radiohead", "title": "Pyramid Song"}],
+        "params": {
+            "novelty": 50,
+            "genre_lock": [],
+            "artist_diversity": 5,
+            "length": 10,
+        },
+    }
+
+    received: list[tuple[str, str]] = []
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        async with ac.stream("POST", "/recommend/stream", json=payload) as resp:
+            assert resp.status_code == 200
+            current_event: str | None = None
+            current_data: str | None = None
+            async for line in resp.aiter_lines():
+                if line.startswith("event:"):
+                    current_event = line[len("event:") :].strip()
+                elif line.startswith("data:"):
+                    current_data = line[len("data:") :].strip()
+                elif line == "" and current_event is not None:
+                    received.append((current_event, current_data or ""))
+                    current_event = None
+                    current_data = None
+            if current_event is not None:
+                received.append((current_event, current_data or ""))
+
+    event_names = [ev for ev, _ in received]
+    assert "error" in event_names
+    error_data = json.loads(next(d for ev, d in received if ev == "error"))
+    assert error_data["error"] == "lastfm_unavailable"
+
+
+@respx.mock
+async def test_recommend_stream_no_successful_seeds_emits_error_event() -> None:
+    _route("track.getSimilar", "Unknown", "Ghost Track", _similar_response([]))
+    _artist_route("artist.getSimilar", "Unknown", _artist_similar_response([]))
+    payload = {
+        "seeds": [{"artist": "Unknown", "title": "Ghost Track"}],
+        "params": {
+            "novelty": 50,
+            "genre_lock": [],
+            "artist_diversity": 5,
+            "length": 10,
+        },
+    }
+
+    received: list[tuple[str, str]] = []
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        async with ac.stream("POST", "/recommend/stream", json=payload) as resp:
+            assert resp.status_code == 200
+            current_event: str | None = None
+            current_data: str | None = None
+            async for line in resp.aiter_lines():
+                if line.startswith("event:"):
+                    current_event = line[len("event:") :].strip()
+                elif line.startswith("data:"):
+                    current_data = line[len("data:") :].strip()
+                elif line == "" and current_event is not None:
+                    received.append((current_event, current_data or ""))
+                    current_event = None
+                    current_data = None
+            if current_event is not None:
+                received.append((current_event, current_data or ""))
+
+    event_names = [ev for ev, _ in received]
+    assert "error" in event_names
+    error_data = json.loads(next(d for ev, d in received if ev == "error"))
+    assert error_data["error"] == "no_successful_seeds"
+
+
+@respx.mock
+async def test_recommend_stream_no_recommendations_emits_error_event() -> None:
+    # trip-hop candidate with genre_lock=["metal"] — nothing survives ranking
+    _route(
+        "track.getSimilar",
+        "Portishead",
+        "Glory Box",
+        _similar_response(
+            [_sim_track("Teardrop", "Massive Attack", match=0.9, playcount=5_000_000)]
+        ),
+    )
+    _route(
+        "track.getTopTags",
+        "Portishead",
+        "Glory Box",
+        _tags_response("Portishead", "Glory Box", [("trip-hop", 100)]),
+    )
+    _route(
+        "track.getTopTags",
+        "Massive Attack",
+        "Teardrop",
+        _tags_response("Massive Attack", "Teardrop", [("trip-hop", 90)]),
+    )
+    payload = {
+        "seeds": [{"artist": "Portishead", "title": "Glory Box"}],
+        "params": {
+            "novelty": 50,
+            "genre_lock": ["metal"],
+            "artist_diversity": 5,
+            "length": 10,
+        },
+    }
+
+    received: list[tuple[str, str]] = []
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        async with ac.stream("POST", "/recommend/stream", json=payload) as resp:
+            assert resp.status_code == 200
+            current_event: str | None = None
+            current_data: str | None = None
+            async for line in resp.aiter_lines():
+                if line.startswith("event:"):
+                    current_event = line[len("event:") :].strip()
+                elif line.startswith("data:"):
+                    current_data = line[len("data:") :].strip()
+                elif line == "" and current_event is not None:
+                    received.append((current_event, current_data or ""))
+                    current_event = None
+                    current_data = None
+            if current_event is not None:
+                received.append((current_event, current_data or ""))
+
+    event_names = [ev for ev, _ in received]
+    assert "error" in event_names
+    error_data = json.loads(next(d for ev, d in received if ev == "error"))
+    assert error_data["error"] == "no_recommendations"
+
+
+@respx.mock
 async def test_recommend_csv_format() -> None:
     seed_artist, seed_title = "Radiohead", "Pyramid Song"
 

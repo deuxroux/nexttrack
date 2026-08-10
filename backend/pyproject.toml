@@ -1,8 +1,9 @@
 [project]
 name = "nexttrack"
 version = "0.1.0"
-description = "Add your description here"
+description = "NextTrack is a privacy focused, stateless, and non-tracking music recommendation engine for playlist extension."
 readme = "README.md"
+license = "MIT"
 authors = [
     { name = "Vineet Erasala", email = "erasalav@gmail.com" }
 ]

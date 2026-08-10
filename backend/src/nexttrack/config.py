@@ -3,8 +3,11 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-#  .env relative path for loading regardless of cwd
-_ENV_FILE = Path(__file__).resolve().parent.parent.parent / ".env"
+# Repo-root .env, resolved relative to this file so cwd does not matter.
+# Inside the Docker image src/ is copied to /app/src, so this path will not
+# exist there — that is intentional: the container gets its config from real
+# environment variables injected by Compose.
+_ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
 
 
 class Settings(BaseSettings):
@@ -24,7 +27,10 @@ class Settings(BaseSettings):
     # comma-separated list for local host origins. can add "[...], http://localhost:3000"
     cors_allowed_origins: str = "http://localhost:5173"
 
-    model_config = SettingsConfigDict(env_file=_ENV_FILE, env_file_encoding="utf-8")
+    # extra='ignore' lets the root .env carry VITE_* frontend keys without failing validation
+    model_config = SettingsConfigDict(
+        env_file=_ENV_FILE, env_file_encoding="utf-8", extra="ignore"
+    )
 
     @property
     def user_agent(self) -> str:

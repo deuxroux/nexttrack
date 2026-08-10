@@ -11,28 +11,30 @@ The bash commands for each step can be run, with expected outcome proving statel
 Assert that none of the API endpoints returns a `Set-Cookie` header.
 
 ```bash
-for endpoint in \
-  "GET /health" \
-  "GET /metrics" \
-  "POST /seed-profile" \
-  "POST /recommend" \
-  "POST /recommend/stream" \
-  "POST /resolve-spotify-url"; do
-  echo "--- $endpoint ---"
-done
-
 curl -sv http://localhost:8000/health 2>&1 | grep -i set-cookie
 curl -sv http://localhost:8000/metrics 2>&1 | grep -i set-cookie
 curl -sv -X POST http://localhost:8000/seed-profile \
      -H 'Content-Type: application/json' \
-     -d '{"seeds":[]}' 2>&1 | grep -i set-cookie
+     -d '{  "seeds": [
+    {"artist": "Radiohead",      "title": "Pyramid Song"},
+    {"artist": "Portishead",     "title": "Glory Box"},
+    {"artist": "Massive Attack", "title": "Teardrop"}
+  ]}' 2>&1 | grep -i set-cookie
 curl -sv -X POST http://localhost:8000/recommend \
      -H 'Content-Type: application/json' \
-     -d '{"seeds":[],"params":{"novelty":50,"genre_lock":[],"artist_diversity":3,"length":10}}' \
+     -d '{  "seeds": [
+    {"artist": "Radiohead",      "title": "Pyramid Song"},
+    {"artist": "Portishead",     "title": "Glory Box"},
+    {"artist": "Massive Attack", "title": "Teardrop"}
+  ],"params":{"novelty":50,"genre_lock":[],"artist_diversity":3,"length":10}}' \
      2>&1 | grep -i set-cookie
 curl -sv -N -X POST http://localhost:8000/recommend/stream \
      -H 'Content-Type: application/json' \
-     -d '{"seeds":[],"params":{"novelty":50,"genre_lock":[],"artist_diversity":3,"length":10}}' \
+     -d '{  "seeds": [
+    {"artist": "Radiohead",      "title": "Pyramid Song"},
+    {"artist": "Portishead",     "title": "Glory Box"},
+    {"artist": "Massive Attack", "title": "Teardrop"}
+  ],"params":{"novelty":50,"genre_lock":[],"artist_diversity":3,"length":10}}' \
      2>&1 | grep -i set-cookie
 curl -sv -X POST http://localhost:8000/resolve-spotify-url \
      -H 'Content-Type: application/json' \

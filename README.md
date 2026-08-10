@@ -11,161 +11,223 @@ This project was developed for CM3070 coursework, towards a degree from Universi
 ## Architecture
 
 ```
-frontend/  React + TypeScript (Vite)
-backend/   FastAPI + Pydantic v2, async throughout
-  src/nexttrack/
-    lastfm/      Last.fm API client (I/O)
-    spotify/     Spotify Client Credentials client (I/O)
-    pipeline/    Pure aggregation + ranking logic (no I/O)
-    export/      CSV serializatio
-    api.py       FastAPI routes
-    cache.py     Redis-backed cache
-    config.py    Settings (env-driven)
-docker-compose.yml   Redis + backend (+ frontend, via profile)
-```
+.env                     Single environment file for both services (filled at time of hosting)
+docker-compose.yml       Redis + backend + frontend
 
+backend/                 Python, FastAPI, Pydantic v2, async structure
+  src/nexttrack/
+    lastfm/              Last.fm API client, with I/O, rate limiting, fallbacks
+    spotify/             Spotify Client Credentials client for URL resolution only
+    pipeline/            Aggregation and ranking
+    export/              CSV serialisation
+    observability/       Per-stage timing ring buffers
+    api.py               FastAPI routes
+    cache.py             Redis-backed cache logic
+    config.py            Settings, env-driven with fallbacks
+  scripts/               quick use scripts for use in testing and dev
+  tests/                 pytest suite
+
+frontend/                React + TypeScript (Vite)
+  src/
+    api/                 openapi-fetch client
+    hooks/               State and I/O hooks for backend comms
+    components/          UI components with CSS Modules
+    styles/global.css    Global Design tokens and base styles
+    test/                Testing suite for frontend
+
+docs/
+  openapi.json                     Generated OpenAPI spec (frontend codegen input)
+  statelessness_verification.md    Reproducible privacy verification procedure
+```
+---
 ## Prerequisites
 
 **Option A — Docker (recommended):**
-- Docker CLI + Docker Compose
-- A container runtime: [Colima](https://github.com/abiosoft/colima) (used in
-  this project) or Docker Desktop
+- Docker with Compose v2 (`docker compose` command)
+- A container runtime: [Colima](https://github.com/abiosoft/colima) was used in
+  development. Could use Docker Desktop or Docker Engine for hosted versions
 
 **Option B — Local, no containers:**
-- Python 3.13 (`.python-version` pinned)
+- Python 3.13 (pinned)
 - [`uv`](https://github.com/astral-sh/uv) for Python dependency management
-- Node.js 20+ and npm (once frontend work begins)
+- Node.js 22+ and npm
 - A locally running Redis instance
-
+---
 ## Setup
 
-1. Clone the repo and copy the environment templates:
+NextTrack uses **one environment file**, at the repository root, shared by both
+services.
+
+1. Clone the repository and create your environment file:
 
    ```bash
-   cp backend/.env.example backend/.env
-   cp frontend/.env.example frontend/.env   # once frontend exists
+   cp .env.example .env
    ```
 
-2. Edit `backend/.env` and fill in:
-   - `LASTFM_API_KEY` — required. Get one from
+2. Edit `.env` and fill in the two required values:
+   - **`LASTFM_API_KEY`** If needed get one at
      [last.fm/api/account/create](https://www.last.fm/api/account/create).
-   - `USER_AGENT_CONTACT` — required. Last.fm's terms require a contact
-     email in the User-Agent header.
-   - `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` — optional. Used only for Spotify URL track input resolution.
-   Leave blank to disable `/resolve-spotify-url`; the rest of the API is unaffected.
-   - `CORS_ALLOWED_ORIGINS` — defaults to `http://localhost:5173` (Vite's
-     default dev port). Adjust if your frontend runs elsewhere.
+   - **`USER_AGENT_CONTACT`** — a contact email, ideally from key registration. Last.fm's API terms require an
+     identifying User-Agent on outbound requests.
+   Everything else has a working default, but I highly recommend getting a `SPOTIFY_CLIENT_ID` and
+   `SPOTIFY_CLIENT_SECRET`. Leaving them blank disables URL retrieval for user QoL. Omitting will break
+   `POST /resolve-spotify-url` (which returns `503`) but affects nothing else.
 
-## Running with Docker (Colima or Docker Desktop)
-Start your container runtime first if it isn't already running:
-Either activate docker desktop or Colima:
+your `.env` should be git-ignored. If forking or developing on your own, Confirm before staging anything:
+
 ```bash
-colima start          # only if using Colima; skip for Docker Desktop
+git check-ignore -v .env
+```
+---
+
+## Running with Docker
+
+### Start up:
+Start your container runtime first if it isn't already running:
+Activate Docker Engine. In the case of Colima:
+```bash
+colima start
 ```
 
-Bring up Redis + backend:
+Bring up the full stack — Redis, backend, and frontend:
+
+```bash
+docker compose up --build
+```
+
+**Note:** depending on your docker setup you may need to ensure CLI tools are up to date. while still active, v1 language should also work:
 
 ```bash
 docker-compose up --build
 ```
 
-Once frontend work has started and its Dockerfile exists, bring up the full
-stack (backend + frontend) with:
+### Access:
+- Frontend: <http://localhost:5173>
+- Backend: <http://localhost:8000>
+- Swagger UI: <http://localhost:8000/docs>
+
+
+### Tear down:
 
 ```bash
-docker-compose --profile full up --build
+docker compose down          # add -v to also drop the Redis cache volume
 ```
 
-Tear down:
-
-```bash
-docker-compose down
-# or, if started with --profile full:
-docker-compose --profile full down
-```
-
-Backend is reachable at `http://localhost:8000`, frontend (once containerized)
-at `http://localhost:5173`.
-
-## Running locally without Docker
-
-Terminal 1 — Redis:
-
-```bash
-redis-server
-```
-
-Terminal 2 — backend:
-
-```bash
-cd backend
-uv sync
-uv run uvicorn nexttrack.api:app --reload
-```
-
-Note: when running this way (not via Compose), `REDIS_URL` in `backend/.env`
-should point at `redis://localhost:6379/0`, not the `redis://redis:6379/0`
-hostname used inside the Docker network.
-
-Terminal 3 — frontend (once it exists):
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
 
 ## API endpoints
+
+To Use API endpoints alone, ensure the backend is up at a minimum. The following exposed endpoints relate to the recommendation engine and metadata alone.
 
 | Endpoint | Method | Purpose |
 |---|---|---|
 | `/health` | GET | Liveness check |
-| `/metrics` | GET | Cache hit/miss stats + per-stage timing summary |
-| `/seed-profile` | POST | Preview the aggregated tag profile for a set of seeds |
-| `/recommend` | POST | Get ranked recommendations. `?format=csv` streams a CSV instead of JSON |
-| `/recommend/stream` | POST | Same as `/recommend`, delivered incrementally via SSE |
-| `/resolve-spotify-url` | POST | Resolve a pasted Spotify track URL to an `{artist, title}` pair |
+| `/search` | GET | Last.fm track typeahead (`?q=`, `?limit=`) |
+| `/metrics` | GET | Cache hit/miss counts and per-stage timing percentiles |
+| `/seed-profile` | POST | Aggregated tag profile for a seed set, used to populate genre-lock suggestions |
+| `/recommend` | POST | Ranked recommendations as JSON; `?format=csv` returns a CSV attachment instead |
+| `/recommend/stream` | POST | Same pipeline, delivered incrementally over Server-Sent Events |
+| `/resolve-spotify-url` | POST | Resolve a pasted Spotify track URL to `{artist, title}` |
 
-Full request/response schemas are available at `http://localhost:8000/docs`
-(Swagger UI) while the backend is running, and exported to
-[`docs/openapi.json`](docs/openapi.json) for frontend codegen.
+Full request/response schemas are served at <http://localhost:8000/docs> while the
+backend runs, and exported to [`docs/openapi.json`](docs/openapi.json) for frontend
+codegen.
 
-## Testing
+Server Sent Events (SSE) were implemented for user affordance since otherwise POST /recommend
+ is fully blocking. the stream modifier emits progress in multiple stages, helpful for UX.
 
-```bash
-cd backend
-uv run ruff format --check .
-uv run ruff check src/nexttrack/ tests/
-uv run pytest -v
+**SSE  on `/recommend/stream`**, in order:
+
+| Event | Payload | Meaning |
+|---|---|---|
+| `similarity` | `seeds_done`, `seeds_total`, `elapsed_ms` | One per seed, as similarity lookup completes |
+| `tags` | `candidates`, `elapsed_ms` | Deduplication and candidate tag enrichment complete |
+| `result` | `RecommendationResult` | Final ranked list |
+| `error` | `error`, `detail`, `dropped_seeds` | Terminal failure — see below |
+| `done` | `{}` | Stream complete |
+
+A stream ends with either `result` + `done` or `error` + `done`, never both. The
+`error` codes are `no_successful_seeds`, `no_recommendations`, and
+`lastfm_unavailable`, matching the JSON bodies returned by `POST /recommend`.
+
+---
+
+## Recommendation Architecture
+
+**Candidate generation.** For each seed, `track.getSimilar` supplies candidates with
+similarity scores and `track.getTopTags` supplies a tag profile. Two fallbacks apply:
+
+- **Fallback A** — if `track.getSimilar` returns empty, fall back to `artist.getSimilar`
+combined with each similar artist's top tracks. The same substitution applies to tags via
+ `artist.getTopTags`. Fallback use is recorded in each affected candidate's `explanation` field.
+- **Fallback B** — if both the track- and artist-level routes come back empty, the
+  seed is dropped and reported in `dropped_seeds`.
+
+**Deduplication.** Candidates are keyed by case-normalised `(artist, title)`, with
+similarity scores summed when several seeds recommend the same track. Seeds
+themselves are excluded from their own output.
+
+**Ranking.** Each candidate is scored as a convex blend of relevance and novelty:
+
+```
+relevance = (W_SIM · norm_sim + W_TAG · tag_overlap) / (W_SIM + W_TAG)
+score     = (1 − α) · relevance + α · novelty_bonus        where α = novelty / 100
 ```
 
-All three must pass before any commit.
+`norm_sim` is summed similarity max-normalised across the surviving pool,
+`tag_overlap` is the fraction of the seed tag profile a candidate matches, and
+`novelty_bonus` is `1 − playcount / max_playcount` over the pool. `W_SIM` and
+`W_TAG` are defined in `pipeline/rank.py`.
 
-## Developer verification checklist
+**Filtering**, applied in order after scoring: genre lock, artist-diversity cap
+ application,then truncation to the requested length.  When filtering leaves
+ fewer tracks than requested, `pool_exhausted` is set and the UI shows a notice.
 
-Run this end-to-end check to manually verify performance and feel.
+---
 
-### A. Static checks for pytest/ruff
+## Testing
+For good hygeine, all tests must pass before any commit.
 
+Backend:
 ```bash
 cd backend
 uv run ruff format --check .
 uv run ruff check src/nexttrack/ tests/
 uv run pytest -q
 ```
-All green before proceeding.
 
-### B. Boot the stack
-
+Frontend:
 ```bash
-docker-compose up --build
+cd frontend
+npm run lint
+npm run test
+npm run build
+```
+
+Backend tests run against committed Last.fm fixtures (past pulls from api calls) via
+ `respx` and a `fakeredis`instance, so no network access or API key is needed.
+ Frontend tests use Vitest with Testing Library and jsdom.
+
+**About `backend/tests/fixtures/`.** Files here are live test inputs. Not all may be used.
+ All are regenerable with `scripts/prototype_fixture.py`, which requires a live API key.
+
+---
+
+## API Usage Tutorial
+
+Run this end-to-end check to manually verify performance, especially if only using backend API.
+
+### A. Boot the stack
+
+Use "Running with Docker" section as a guide.
+```bash
+docker compose up --build
 ```
 Confirm in the logs:
 - Redis reports `Ready to accept connections`
 - Backend builds without error
 - Backend logs `Uvicorn running on http://0.0.0.0:8000`
 
-### C. Health + metrics smoke test
+### B. Health and Metrics Check
 
 ```bash
 curl -s http://localhost:8000/health
@@ -175,7 +237,7 @@ curl -s http://localhost:8000/metrics | jq
 structure (timing will be empty until `/recommend` has been called at least
 once).
 
-### D. Swagger UI walkthrough
+### C. Swagger UI walkthrough
 
 Open `http://localhost:8000/docs` and manually exercise, in order:
 
@@ -186,9 +248,11 @@ Open `http://localhost:8000/docs` and manually exercise, in order:
 3. `POST /recommend?format=csv` — confirm the response includes the
    `#`-prefixed header rows and all nine columns. Save it as a `.csv` file
    and open it in a spreadsheet to confirm it parses cleanly.
-4. `POST /recommend/stream` — Swagger doesn't render SSE well; use curl
-   instead, from the repo root:
+4. `POST /resolve-spotify-url` with a real Spotify track URL. Repeat the same
+   call again. the second response should be near-instant (cache proof).
 
+### D. SSE streaming from CLI
+Can't really be done from Swagger UI. try CLI to verify.
    ```bash
    curl -N -X POST http://localhost:8000/recommend/stream \
         -H 'Content-Type: application/json' \
@@ -197,8 +261,7 @@ Open `http://localhost:8000/docs` and manually exercise, in order:
    (from `backend/`, drop the `backend/` prefix: `-d @scripts/sample_request.json`)
 
    Confirm incremental delivery multiple `event:` lines expected.
-5. `POST /resolve-spotify-url` with a real Spotify track URL. Repeat the same
-   call — the second response should be near-instant (cache hit).
+
 
 ### E. Error-branch checks
 
@@ -234,14 +297,6 @@ docker-compose exec redis redis-cli --scan | while read -r key; do
 done
 ```
 
-### G. Clean reboot
-
-```bash
-docker-compose down
-docker-compose up -d
-```
-Confirm the stack comes back up with no manual intervention
-
 ## Keeping frontend types in sync with the backend
 
 Whenever the backend's request/response models change (new endpoint, new
@@ -262,74 +317,42 @@ generated types together, in this order:
 ```
 
 Commit `docs/openapi.json` and `frontend/src/api/schema.d.ts` together with
-the backend change that caused them to change — they're derived artifacts,
-not independent source of truth, and should never drift from the backend
-that generated them.
-
-**Do not hand-edit `frontend/src/api/schema.d.ts`.** It is fully
-regenerated by step 2 above; any manual edits will be silently overwritten
-the next time someone runs the script.
+the backend change since hey're derived artifacts.
 
 
-## Environment variables
-### BACKEND
-| Variable | Required | Default | Purpose |
-|---|---|---|---|
-| `LASTFM_API_KEY` | Yes | — | Last.fm API authentication |
-| `USER_AGENT_CONTACT` | Yes | — | Contact email in User-Agent header (Last.fm ToS) |
-| `SPOTIFY_CLIENT_ID` | No | `""` | Enables `/resolve-spotify-url` |
-| `SPOTIFY_CLIENT_SECRET` | No | `""` | Enables `/resolve-spotify-url` |
-| `CORS_ALLOWED_ORIGINS` | No | `http://localhost:5173` | Comma-separated list of allowed frontend origins |
-| `REDIS_URL` | No | `redis://localhost:6379/0` | Overridden to `redis://redis:6379/0` inside Docker Compose |
-
-See `backend/.env.example` for the canonical, always-current list.
-
-### FRONTEND
-[TO BE FILLED]
 
 ## Playlist export
 
-CSV exports (`/recommend?format=csv`) include a Spotify search URL and an
-Apple Music search URL per track for manual playlist creation.
-CSV results can also be imported into an integrated playlist importer for
- streaming services using a third-party tool such as
-[Soundiiz](https://soundiiz.com) or [TuneMyMusic](https://www.tunemymusic.com).
-This step is optional and outside NextTrack's latest scope. the CSV format is
-simply compatible with these tools' import functionality.
+CSV exports (`POST /recommend?format=csv`) (or using export CSV button in provided UI):
+- produces file named for the run, for example `nexttrack_2026-08-09_nov60_div3.csv`, with
+`#`-prefixed comment rows recording the export timestamp, every parameter value, and
+the full seed list — so any exported list is reproducible from the file alone.
+- Columns: `rank`, `artist`, `title`, `matched_tags`, `contributing_seeds`,
+`final_score`, `explanation`, `spotify_search_url`, `apple_music_search_url`.
+- include a Spotify search URL and an Apple Music search URL per track for manual playlist creation.
+- CSV results can also be imported into an integrated playlist importer for
+ streaming services using a third-party tool such as [Soundiiz](https://soundiiz.com) or
+  [TuneMyMusic](https://www.tunemymusic.com). This step is optional and outside NextTrack's
+  latest scope. the CSV format is compatible with these tools' import functionality.
 
 ## Tech stack
 
-- **Backend:** Python 3.13, FastAPI, Pydantic v2, httpx, Redis,
+- **Backend** — Python 3.13, FastAPI, Pydantic v2, httpx, Redis,
   `sse-starlette`, `uv`, `ruff`
-- **Testing:** `pytest`, `pytest-asyncio` (auto mode), `respx`, `fakeredis`,
-  `hypothesis`
-- **Frontend:** React, TypeScript, Vite, `openapi-fetch`
-- **Infrastructure:** Docker Compose, Redis 7
+- **Backend testing** — `pytest`, `pytest-asyncio` (auto mode), `respx`,
+  `fakeredis`, `hypothesis`
+- **Frontend** — React 19, TypeScript, Vite, CSS Modules, `openapi-fetch`,
+  `@microsoft/fetch-event-source`, `@tabler/icons-react`, `oxlint`
+- **Frontend testing** — Vitest, Testing Library, jsdom
+- **Infrastructure** — Docker Compose, Redis 7
 
-
+**Data sources.** Last.fm is the sole primary source for similarity and tags. Spotify
+is used only through the Client Credentials flow, to resolve a pasted track URL to an
+artist and title — there is no user-facing Spotify authentication and no playlist
+write access.
 
 
 
 ## License
-MIT License
-
-Copyright (c) 2026 Vineet Erasala. Created for an Academic project — CM3070.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+MIT License. See [License](LICENSE) File.
 
