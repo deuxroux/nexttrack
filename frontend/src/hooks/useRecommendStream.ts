@@ -101,6 +101,7 @@ export function useRecommendStream(): RecommendStreamHandle {
               break;
             }
             case "done":
+              setStreaming(false); //fix for not allowing new recommendations
               ctrl.abort();
               break;
           }

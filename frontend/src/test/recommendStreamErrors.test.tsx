@@ -25,7 +25,7 @@ vi.mock("@microsoft/fetch-event-source", () => ({
       opts: { onmessage?: (ev: { event: string; data: string }) => void },
     ) => {
       streamState.onmessage = opts.onmessage ?? null;
-      return new Promise<void>(() => {}); // hangs — simulates open stream
+      return new Promise<void>(() => { }); // hangs — simulates open stream
     },
   ),
 }));
@@ -45,17 +45,59 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+//Fixturing for re-set conditions-- mock recommendations matching shape of candidates.
+const mockResult = {
+  candidates: [
+    {
+      artist: "Portishead",
+      title: "Glory Box",
+      summed_similarity: 0.9,
+      tag_overlap: 3,
+      novelty_bonus: 0.1,
+      final_score: 1.0,
+      contributing_seeds: ["Radiohead|Creep"],
+      matched_tags: ["trip-hop"],
+      explanation: ["High similarity"],
+    },
+  ],
+  dropped_seeds: [],
+  params: { novelty: 50, genre_lock: [], artist_diversity: 5, length: 10 },
+  pool_exhausted: false,
+};
+
+describe("useRecommendStream — SSE done event", () => {
+  it("done event re-enables Recommend after successful stream", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.type(screen.getByRole("combobox"), "Cre");
+    const option = await screen.findByRole("option", { name: /Creep/i });
+    await user.click(option);
+
+    await user.click(screen.getByRole("button", { name: /^Recommend$/i }));
+
+    await act(async () => {
+      streamState.onmessage!({ event: "result", data: JSON.stringify(mockResult) });
+    });
+    await act(async () => {
+      streamState.onmessage!({ event: "done", data: "{}" });
+    });
+
+    expect(screen.getByRole("button", { name: /^Recommend$/i })).not.toBeDisabled();
+  });
+});
+
 describe("useRecommendStream — SSE error event", () => {
   it("error event surfaces mapped message and re-enables Recommend", async () => {
     const user = userEvent.setup();
     render(<App />);
 
-    // add a seed via the typeahead so canRecommend becomes true
+    // typeahead so canRecommend becomes true
     await user.type(screen.getByRole("combobox"), "Cre");
     const option = await screen.findByRole("option", { name: /Creep/i });
     await user.click(option);
 
-    // click Recommend — fetchEventSource is now called and opts captured
+    // on recommend click fetchEventSource is now called and opts captured
     await user.click(screen.getByRole("button", { name: /^Recommend$/i }));
 
     // simulate server emitting an error SSE event mid-stream
@@ -70,7 +112,7 @@ describe("useRecommendStream — SSE error event", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "No tracks match your filters. Loosen genre-lock or novelty.",
     );
-    // streaming stopped — Recommend button is re-enabled
+    //confirm  Recommend button is re-enabled
     expect(screen.getByRole("button", { name: /^Recommend$/i })).not.toBeDisabled();
   });
 });

@@ -1,3 +1,5 @@
+#devside testing only-- used early in development. vestigial, but kept for coursework documentation.
+#demonstrates base recommender pipeline.
 import asyncio
 import os
 from pathlib import Path
