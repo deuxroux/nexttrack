@@ -26,7 +26,7 @@ class Candidate(BaseModel):
     matched_tags: list[str]
     explanation: list[
         str
-    ] = []  # non-empty if any contributing seed used a fallback route
+    ] = []
 
 
 class TrackHit(BaseModel):

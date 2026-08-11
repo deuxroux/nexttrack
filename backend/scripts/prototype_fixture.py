@@ -1,4 +1,4 @@
-#This script generates test fixtures in test/json
+#This script generates test fixtures in tests/fixtures
 import asyncio
 import json
 import os

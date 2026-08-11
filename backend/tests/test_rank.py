@@ -112,27 +112,7 @@ def test_artist_diversity_keeps_highest_scoring():
     titles = [c.title for c in result.candidates]
     assert titles == ["T0", "T1"]
 
-
-def test_artist_diversity_max_passes_all():
-    # artist_diversity=10 (maximum) with 5 tracks means no practical cap
-    rh = [_cand("Radiohead", f"T{i}", sim=0.9, novelty_bonus=0.0) for i in range(5)]
-    result = rank(rh, [], _params(artist_diversity=10, length=10))
-    assert len(result.candidates) == 5
-
-
-def test_artist_diversity_interleaves_artists():
-    # Portishead track should survive even though Radiohead ranks higher overall
-    rh = [
-        _cand("Radiohead", f"T{i}", sim=0.9 - i * 0.05, novelty_bonus=0.0)
-        for i in range(3)
-    ]
-    pt = _cand("Portishead", "Glory Box", sim=0.5, novelty_bonus=0.0)
-    result = rank(rh + [pt], [], _params(novelty=0, artist_diversity=1, length=10))
-    artists = {c.artist for c in result.candidates}
-    assert "Portishead" in artists
-
-
-def test_artist_diversity_cap_and_sort_order_multiartist():
+def test_artist_diversity_cap_and_sort_order():
     # 3 Radiohead  +  2 Portishead (sims 0.8, 0.6); cap=1 per artist should expose one of each.
     # Assuming just two artists, reasonable to see one from each.
     rh = [

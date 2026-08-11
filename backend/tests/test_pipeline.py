@@ -2,10 +2,10 @@ from nexttrack.models import Candidate, RecommendationParams, RecommendationResu
 from nexttrack.pipeline.rank import rank
 
 
-# confirm a recommendation is produced (end to end)
+# confirm a recommendation is produced (end to end, real)
 def test_rank_returns_recommendation_result():
     c = Candidate(
-        artist="Portishead",
+        artist="Portishead", #determined result
         title="Glory Box",
         summed_similarity=0.9,
         tag_overlap=0.5,

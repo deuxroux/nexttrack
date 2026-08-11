@@ -340,7 +340,7 @@ async def test_fallback_seed_explanation_populated():
 
 @respx.mock
 async def test_primary_seed_has_correct_explanation():
-    # Candidates from a seed that used only primary routes have explanation=[].
+    # all routes should now have explanations
     _route(
         "track.getSimilar",
         "Radiohead",

@@ -72,7 +72,7 @@ def _parse_csv(csv_body: str) -> tuple[list[str], list[list[str]]]:
     return header, rows
 
 
-# Column contractcorrect and  Header comment rows correct
+# Column contract correct and  Header comment rows correct
 def test_columns_exact_match():
     _, csv_body = render_csv(_result(), _seeds(), _params(), _NOW)
     header, _ = _parse_csv(csv_body)
@@ -93,7 +93,7 @@ def test_header_comments_present():
 def test_first_lines_are_comments():
     _, csv_body = render_csv(_result(), _seeds(), _params(), _NOW)
     first_line = csv_body.splitlines()[0]
-    assert first_line.startswith("#")
+    assert first_line.startswith("#") #matters for import tools
 
 
 def test_genre_lock_in_header():

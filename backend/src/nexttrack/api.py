@@ -272,7 +272,8 @@ async def recommend(
 
     return result
 
-#/stream still calls rank and filter algorithms but does it in stages. TODO consolidate logic
+#in /stream, ranking/filtering happens only once the stream completes
+# TODO consolidate logic between /recommend and /recommend/stream
 @app.post("/recommend/stream")
 async def recommend_stream(
     body: RecommendRequest,

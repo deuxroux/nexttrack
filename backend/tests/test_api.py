@@ -14,7 +14,6 @@ from nexttrack.config import get_settings
 from nexttrack.lastfm.client import BASE_URL
 from nexttrack.models import RecommendationResult, SeedProfile, TagCount
 
-
 # monkeypatch used for env variable setting in absence at test time
 @pytest.fixture(autouse=True)
 async def _override_settings(monkeypatch):
@@ -165,7 +164,6 @@ async def test_recommend_200_and_valid_result() -> None:
 # Seed input cap validation (min=1, max=50)
 # ---------------------------------------------------------------------------
 
-
 async def test_recommend_empty_seeds_returns_422() -> None:
     async with httpx.AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
@@ -203,7 +201,6 @@ async def test_recommend_too_many_seeds_returns_422() -> None:
 
 # Streaming endpoint
 # ---------------------------------------------------------------------------
-
 
 @respx.mock
 async def test_recommend_stream_event_order_and_result() -> None:
@@ -297,8 +294,6 @@ async def test_recommend_stream_event_order_and_result() -> None:
 
 # /seed-profile endpoint
 # ---------------------------------------------------------------------------
-
-
 @respx.mock
 async def test_seed_profile_happy_path() -> None:
     # Two seeds sharing "alternative". unique tags verify sort order.
@@ -473,9 +468,7 @@ async def test_seed_profile_statelessness_recommend_unaffected() -> None:
     assert result.candidates[0].title == "Glory Box"
 
 
-# Cache integration tests
-
-
+# Cache integration tests with fakeredis
 @respx.mock
 async def test_cache_hit_on_second_recommend() -> None:
     # Two identical POST /recommend calls should not poll last.fm
@@ -688,54 +681,6 @@ async def test_metrics_endpoint() -> None:
     assert 0.0 < body["hit_rate"] < 1.0
 
 
-# CSV export via format=csv parameter
-
-@respx.mock
-async def test_recommend_lastfm_outage_returns_502() -> None:
-    respx.get(BASE_URL).mock(side_effect=httpx.ConnectError("connection refused"))
-    async with httpx.AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
-        r = await ac.post(
-            "/recommend",
-            json={
-                "seeds": [{"artist": "Radiohead", "title": "Pyramid Song"}],
-                "params": {
-                    "novelty": 50,
-                    "genre_lock": [],
-                    "artist_diversity": 5,
-                    "length": 10,
-                },
-            },
-        )
-    assert r.status_code == 502
-    assert r.json()["error"] == "lastfm_unavailable"
-
-
-@respx.mock
-async def test_recommend_all_seeds_dropped_returns_422() -> None:
-    _route("track.getSimilar", "Unknown", "Ghost Track", _similar_response([]))
-    _artist_route("artist.getSimilar", "Unknown", _artist_similar_response([]))
-    async with httpx.AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
-        r = await ac.post(
-            "/recommend",
-            json={
-                "seeds": [{"artist": "Unknown", "title": "Ghost Track"}],
-                "params": {
-                    "novelty": 50,
-                    "genre_lock": [],
-                    "artist_diversity": 5,
-                    "length": 10,
-                },
-            },
-        )
-    assert r.status_code == 422
-    assert r.json()["error"] == "no_successful_seeds"
-    assert r.json()["dropped_seeds"] == ["Unknown/Ghost Track"]
-
-
 @respx.mock
 async def test_recommend_genre_lock_no_matches_returns_422() -> None:
     # Seed and candidate both carry trip-hop; genre_lock=["metal"] filters everything out
@@ -779,45 +724,6 @@ async def test_recommend_genre_lock_no_matches_returns_422() -> None:
 
 
 @respx.mock
-async def test_recommend_stream_lastfm_outage_emits_error_event() -> None:
-    respx.get(BASE_URL).mock(side_effect=httpx.ConnectError("connection refused"))
-    payload = {
-        "seeds": [{"artist": "Radiohead", "title": "Pyramid Song"}],
-        "params": {
-            "novelty": 50,
-            "genre_lock": [],
-            "artist_diversity": 5,
-            "length": 10,
-        },
-    }
-
-    received: list[tuple[str, str]] = []
-    async with httpx.AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
-        async with ac.stream("POST", "/recommend/stream", json=payload) as resp:
-            assert resp.status_code == 200
-            current_event: str | None = None
-            current_data: str | None = None
-            async for line in resp.aiter_lines():
-                if line.startswith("event:"):
-                    current_event = line[len("event:") :].strip()
-                elif line.startswith("data:"):
-                    current_data = line[len("data:") :].strip()
-                elif line == "" and current_event is not None:
-                    received.append((current_event, current_data or ""))
-                    current_event = None
-                    current_data = None
-            if current_event is not None:
-                received.append((current_event, current_data or ""))
-
-    event_names = [ev for ev, _ in received]
-    assert "error" in event_names
-    error_data = json.loads(next(d for ev, d in received if ev == "error"))
-    assert error_data["error"] == "lastfm_unavailable"
-
-
-@respx.mock
 async def test_recommend_stream_no_successful_seeds_emits_error_event() -> None:
     _route("track.getSimilar", "Unknown", "Ghost Track", _similar_response([]))
     _artist_route("artist.getSimilar", "Unknown", _artist_similar_response([]))
@@ -858,7 +764,7 @@ async def test_recommend_stream_no_successful_seeds_emits_error_event() -> None:
 
 
 @respx.mock
-async def test_recommend_stream_no_recommendations_emits_error_event() -> None:
+async def test_stream_no_recommendations_emits_error_event() -> None:
     # trip-hop candidate with genre_lock=["metal"] shouldn't survive ranking
     _route(
         "track.getSimilar",

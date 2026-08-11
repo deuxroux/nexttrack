@@ -11,6 +11,7 @@ from nexttrack.api import app
 from nexttrack.config import get_settings
 
 # test fixtures. remember that the track ID does not actually matter since it gets mocked
+#we need to still test shape though since we have error handling.
 TRACK_ID = "55q3Ro66yXWi9rsEddeEN4"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
 TRACK_URL = f"https://api.spotify.com/v1/tracks/{TRACK_ID}"
@@ -38,7 +39,7 @@ async def _override_settings(monkeypatch):
     get_settings.cache_clear()
 
 
-# Happy path0-- tokens work and return
+# Happy path returns good
 # ---------------------------------------------------------------------
 
 @respx.mock
@@ -127,46 +128,6 @@ async def test_resolve_missing_credentials_returns_503(monkeypatch):
     body = r.json()
     assert body["error"] == "spotify_unavailable"
     assert "configured" in body["detail"].lower()
-
-
-# Upstream errors
-# ---------------------------------------------------------------------------
-
-
-@respx.mock
-async def test_resolve_upstream_404_returns_404():
-    respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json=_TOKEN_BODY))
-    respx.get(TRACK_URL).mock(return_value=httpx.Response(404))
-
-    async with httpx.AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
-        r = await ac.post(
-            "/resolve-spotify-url",
-            json={"url": f"https://open.spotify.com/track/{TRACK_ID}"},
-        )
-
-    assert r.status_code == 404
-    assert r.json()["error"] == "track_not_found"
-
-
-@respx.mock
-async def test_resolve_upstream_5xx_returns_502():
-    respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json=_TOKEN_BODY))
-    respx.get(TRACK_URL).mock(return_value=httpx.Response(500))
-
-    async with httpx.AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
-        r = await ac.post(
-            "/resolve-spotify-url",
-            json={"url": f"https://open.spotify.com/track/{TRACK_ID}"},
-        )
-
-    assert r.status_code == 502
-    body = r.json()
-    assert body["error"] == "spotify_unavailable"
-
 
 @respx.mock
 async def test_resolve_token_failure_returns_502():

@@ -1,4 +1,4 @@
-## INTERNAL TEST SUITE ONLY-- TO CONFIRM CACHE SPEEDS
+# tests stage timings legnths and statistics
 from nexttrack.observability.timing import StageTimings
 
 

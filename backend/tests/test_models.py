@@ -37,12 +37,12 @@ def test_recommendation_result_shape():
 @pytest.mark.parametrize(
     "field,value",
     [
-        ("artist_diversity", 0),  # below ge=1
-        ("artist_diversity", 11),  # above le=10
-        ("length", 4),  # below ge=5
-        ("length", 51),  # above le=50
-        ("novelty", -1),  # below ge=0
-        ("novelty", 101),  # above le=100
+        ("artist_diversity", 0),  # below
+        ("artist_diversity", 11),  # above
+        ("length", 4),  # below
+        ("length", 51),  # above
+        ("novelty", -1),  # below
+        ("novelty", 101),  # above
     ],
 )
 def test_recommendation_params_rejects_out_of_range(field: str, value: int) -> None:
