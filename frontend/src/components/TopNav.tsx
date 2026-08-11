@@ -1,6 +1,6 @@
 //code for the top naigation bar. uses
-import { useHealth } from "../hooks/useHealth";
 import logoUrl from "../assets/nexttrack_mark_bare.svg";
+import { useHealth } from "../hooks/useHealth";
 import styles from "./TopNav.module.css";
 
 export function TopNav() {
@@ -16,7 +16,7 @@ export function TopNav() {
       <div className={styles.meta}>
         <span className={styles.badge} data-connected={connected}>
           <span className={styles.dot} aria-hidden="true" />
-          {connected ? "Last.fm connected" : "Last.fm unavailable"}
+          {connected ? "Services connected" : "Services unavailable"}
         </span>
       </div>
     </header>

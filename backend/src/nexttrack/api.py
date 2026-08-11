@@ -31,7 +31,7 @@ from nexttrack.pipeline.aggregate import aggregate_streaming, build_seed_profile
 from nexttrack.pipeline.rank import rank
 from nexttrack.spotify.client import SpotifyClient, SpotifyUnavailable
 from nexttrack.spotify.url import parse_track_id
-#NOTE: everything is imported because this file is the transport layer with no logic.
+#NOTE: everything is imported because this file is the transport layer. only API level logic
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,6 @@ async def lifespan(app: FastAPI): #initiate everything before any request
         await redis_client.aclose()
 
 app = FastAPI(title="NextTrack", version="0.1.0", lifespan=lifespan) #fastAPI uses lifespan magr.
-#ASGI middleware setup for request routing
 app.add_middleware(
     CORSMiddleware, #allow frontend port access-- only real need for middleware.
     allow_origins=[
@@ -322,7 +321,6 @@ async def recommend_stream(
         result = rank(candidates, dropped, body.params)
 
         total_ms = sum(per_stage.values())
-        #deliver logger info on status for debugging
         logger.info(
             "recommend/stream complete stage_ms=%s total_ms=%.1f", per_stage, total_ms
         )

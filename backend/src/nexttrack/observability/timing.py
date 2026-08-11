@@ -1,4 +1,4 @@
-# Timing Class to check how long things ar etaking for benchmarking against expected endpoints.
+# Timing Class to check how long things ar etaking for benchmarking
 from collections import deque
 from statistics import quantiles
 

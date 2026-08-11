@@ -92,12 +92,12 @@ describe("useRecommendStream — SSE error event", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    // typeahead so canRecommend becomes true
+    // typeahead example so canRecommend becomes true
     await user.type(screen.getByRole("combobox"), "Cre");
     const option = await screen.findByRole("option", { name: /Creep/i });
     await user.click(option);
 
-    // on recommend click fetchEventSource is now called and opts captured
+    // on recommend click fetchEventSource is now called?
     await user.click(screen.getByRole("button", { name: /^Recommend$/i }));
 
     // simulate server emitting an error SSE event mid-stream
@@ -108,11 +108,11 @@ describe("useRecommendStream — SSE error event", () => {
       });
     });
 
-    // alert should show the mapped human-readable message
+    // alert should show the mapped readable message
     expect(screen.getByRole("alert")).toHaveTextContent(
       "No tracks match your filters. Loosen genre-lock or novelty.",
     );
-    //confirm  Recommend button is re-enabled
+    //confirm then  Recommend button is re-enabled
     expect(screen.getByRole("button", { name: /^Recommend$/i })).not.toBeDisabled();
   });
 });

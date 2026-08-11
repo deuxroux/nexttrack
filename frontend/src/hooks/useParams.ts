@@ -3,7 +3,7 @@ import type { components } from "../api/schema";
 
 type RecommendationParams = components["schemas"]["RecommendationParams"];
 
-//expose these for recommendation consideration
+//expose for recommendation
 export interface ParamsHandle {
   novelty: number;
   artistDiversity: number;

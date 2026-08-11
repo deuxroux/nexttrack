@@ -1,9 +1,9 @@
-//hook for getting health in a single script for display on UI
+//hook for getting service uptime health for display on UI
 
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 
-//call get route and ensure a response. assuming something hits, we're connected.
+//call get route and ensure a response. assuming it hits, we're connected.
 export function useHealth(): { connected: boolean } {
   const [connected, setConnected] = useState(false);
 

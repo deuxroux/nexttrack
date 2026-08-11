@@ -50,7 +50,7 @@ describe("useParams bounds and serialisation", () => {
       result.current.addGenreLock("ROCK");
     });
     expect(result.current.genreLock).toHaveLength(1);
-    expect(result.current.genreLock[0]).toBe("Rock"); // preserves first add
+    expect(result.current.genreLock[0]).toBe("Rock"); // preserves first one
   });
 
   it("removeGenreLock is case-insensitive", () => {

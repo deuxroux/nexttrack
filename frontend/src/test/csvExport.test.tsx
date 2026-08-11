@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { vi } from "vitest";
-import { useCsvExport } from "../hooks/useCsvExport";
 import type { components } from "../api/schema";
+import { useCsvExport } from "../hooks/useCsvExport";
 
 type Track = components["schemas"]["Track"];
 type RecommendationParams = components["schemas"]["RecommendationParams"];
@@ -15,7 +15,6 @@ const params: RecommendationParams = {
 };
 
 beforeEach(() => {
-  // jsdom does not implement Blob URL APIs
   globalThis.URL.createObjectURL = vi.fn().mockReturnValue("blob:mock-url");
   globalThis.URL.revokeObjectURL = vi.fn();
 });
@@ -39,7 +38,7 @@ describe("useCsvExport", () => {
       }),
     );
 
-    // capture anchor.download without triggering jsdom navigation
+    // capture anchor.download
     const clicks: string[] = [];
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(
       function (this: HTMLAnchorElement) {

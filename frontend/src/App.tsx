@@ -21,7 +21,7 @@ function App() {
   const profile = useSeedProfile();
   const stream = useRecommendStream();
   const csvExport = useCsvExport();
-  // snapshot of params at the time Recommend was fired; CSV uses this, not live sliders
+  // snapshot of params at the time Recommend was used so CSV uses for generation.
   const [lastRunParams, setLastRunParams] = useState<RecommendationParams | null>(null);
 
   function handleRecommend() {

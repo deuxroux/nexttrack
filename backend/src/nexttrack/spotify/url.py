@@ -18,7 +18,6 @@ def parse_track_id(url_or_uri: str) -> str | None:
     if url_or_uri.startswith("spotify:track:"):
         track_id = url_or_uri[len("spotify:track:") :]
         return track_id if _TRACK_ID_RE.match(track_id) else None
-   #Return None for errors.
     try:
         parsed = urlparse(url_or_uri)
     except Exception:

@@ -104,8 +104,8 @@ export function ParamsPanel({
         value={params.novelty}
         onChange={params.setNovelty}
         fillPct={noveltyFill}
-        hint="Higher = favour obscure tracks; lower = familiar picks."
-        tooltip="Controls how strongly popular tracks are penalised in ranking."
+        hint="Higher value favors obscure tracks; lower favors familiar artists."
+        tooltip="Controls how strongly popular tracks are penalized in ranking."
       />
 
       <Slider
@@ -116,7 +116,7 @@ export function ParamsPanel({
         value={params.artistDiversity}
         onChange={params.setArtistDiversity}
         fillPct={diversityFill}
-        hint="Max tracks from any one artist in results."
+        hint="Max tracks from any one artist allowed."
         tooltip="Limits the maximum number of recommended tracks per single artist."
       />
 
@@ -174,7 +174,7 @@ export function ParamsPanel({
           {profile.loading ? "Loading…" : "Suggest genres from seeds"}
         </button>
 
-        {/* Suggested chips are capped to top 10 */}
+        {/* Suggestions are capped to top 10 */}
         {profile.tags.length > 0 && (
           <div className={styles.suggestedChips}>
             {profile.tags.map(t => {
@@ -197,7 +197,7 @@ export function ParamsPanel({
         )}
       </div>
 
-      {/*  Status / Recommend  */}
+      {/*  Status/Recommend  */}
       {error && (
         <p className={styles.error} role="alert">
           {error}

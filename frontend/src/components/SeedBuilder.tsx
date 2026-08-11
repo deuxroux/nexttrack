@@ -86,7 +86,7 @@ export function SeedBuilder({ seeds }: Props) {
   return (
     <div className={styles.container}>
 
-      {/* ── Last.fm search (primary input) ── */}
+      {/*  Last.fm search (primary input) */}
       <div className={styles.searchSection}>
         <label htmlFor={`${listboxId}-input`} className={styles.label}>
           Search for a track
@@ -148,7 +148,7 @@ export function SeedBuilder({ seeds }: Props) {
         </div>
       </div>
 
-      {/* ── Spotify URL import (secondary / muted) ── */}
+      {/*  Spotify URL import bar */}
       <div className={styles.spotifySection}>
         <p className={styles.spotifyDivider}>or import via Spotify URL</p>
         <div className={styles.spotifyRow}>
@@ -176,7 +176,7 @@ export function SeedBuilder({ seeds }: Props) {
         )}
       </div>
 
-      {/* ── Seed playlist (below both inputs) ── */}
+      {/*Seed Playlist Builder */}
       <div className={styles.seedSection}>
         <div className={styles.seedHeader}>
           <span className={styles.seedCount}>{seeds.count} / 50 tracks</span>

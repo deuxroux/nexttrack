@@ -10,7 +10,7 @@ def _norm_key(artist: str, title: str) -> tuple[str, str]:
 
 
 async def aggregate_streaming(
-    lf: LastfmClient, seeds: list[Track] #use lastfm client
+    lf: LastfmClient, seeds: list[Track]
 ) -> AsyncIterator[StageEvent | tuple[list[Candidate], list[str]]]:
     seed_tracks: dict[str, list[dict]] = {}
     sim_fallback: dict[str, str] = {}
@@ -80,7 +80,7 @@ async def aggregate_streaming(
             ) + float(t["match"])
 
     # get candidate top tags; compute matched_tags, tag_overlap,etc.
-    #  Timer started in continues here so elapsed_ms covers whole workflow
+    #  Timer started earlier continues here so elapsed_ms covers whole workflow
     max_playcount = max((e["playcount"] for e in pool.values()), default=1)
     pool_size = len(pool)
 
@@ -142,7 +142,7 @@ async def build_seed_profile(lf: LastfmClient, seeds: list[Track]) -> SeedProfil
 
         sim_result = await lf.get_similar_tracks(seed.artist, seed.title)
 
-        # Fallback B: both track- and artist-level similarity returned empty -- drop seed
+        # Fallback: both track- and artist-level similarity returned empty -- drop seed
         if sim_result.fallback_used and not sim_result.tracks:
             dropped_seeds.append(seed_key)
             continue

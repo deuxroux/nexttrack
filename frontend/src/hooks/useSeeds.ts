@@ -14,7 +14,8 @@ export interface SeedsHandle {
 
 const MAX_SEEDS = 50;
 
-//format for ease of readability. may need to update if we have weird tracks..
+//format for ease of readability.
+// TODO investigate if this holds when we have weird tracks like remixes or edits.
 function normalize(t: Track) {
   return `${t.artist.toLowerCase().trim()}|${t.title.toLowerCase().trim()}`;
 }

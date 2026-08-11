@@ -36,7 +36,7 @@ export function Results({ result, onExport, exporting, exportError }: Props) {
         </p>
       )}
 
-      {/* Fallback D notice (2.11) — muted, not --danger */}
+      {/* Fallback notice*/}
       {result?.pool_exhausted && (
         <p className={styles.exhausted}>
           Fewer tracks than requested — the candidate pool was exhausted.
@@ -68,7 +68,7 @@ export function Results({ result, onExport, exporting, exportError }: Props) {
         </ul>
       ) : (
         <p className={styles.empty}>
-          Add seeds and click Recommend to see results here.
+          Add seeds and click Recommend to see results.
         </p>
       )}
     </div>

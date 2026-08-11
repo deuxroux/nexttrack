@@ -1,11 +1,9 @@
-import { act, renderHook } from "@testing-library/react";
-import { render, screen } from "@testing-library/react";
+import { act, render, renderHook, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 import { SeedBuilder } from "../components/SeedBuilder";
 import { useSeeds } from "../hooks/useSeeds";
 
-// hoisted so factory fn and test bodies share the same mock references
 const { mockGet, mockPost } = vi.hoisted(() => ({
   mockGet: vi.fn(),
   mockPost: vi.fn(),
@@ -15,14 +13,13 @@ vi.mock("../api/client", () => ({
   api: { GET: mockGet, POST: mockPost },
 }));
 
-// minimal wrapper that supplies a fresh useSeeds instance to SeedBuilder
+// minimal wrapper for useSeeds instance to SeedBuilder
 function Wrapper() {
   const seeds = useSeeds();
   return <SeedBuilder seeds={seeds} />;
 }
 
-// ── useSeeds cap enforcement (3.10) ──────────────────────────────────────────
-
+//cap enforcement messages
 describe("useSeeds — cap and capacity", () => {
   it("blocks add at 50 seeds", () => {
     const { result } = renderHook(() => useSeeds());
@@ -53,7 +50,7 @@ describe("useSeeds — cap and capacity", () => {
   });
 });
 
-// ── SeedBuilder Spotify fallback (3.31) ──────────────────────────────────────
+//  SeedBuilder Spotify fallback notice
 
 describe("SeedBuilder — Spotify URL fallback", () => {
   it("failed resolve shows fallback notice and does not add a seed", async () => {
@@ -75,7 +72,7 @@ describe("SeedBuilder — Spotify URL fallback", () => {
   });
 });
 
-// ── SeedBuilder search + select (3.08, 3.11) ─────────────────────────────────
+//  SeedBuilder selection functionality
 
 describe("SeedBuilder — search and select", () => {
   it("typing triggers a search and selecting a result adds it as a seed", async () => {

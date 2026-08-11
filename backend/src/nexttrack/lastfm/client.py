@@ -150,7 +150,7 @@ class LastfmClient:
 
         return hits
 
-    # private data parsers. all private funtions with _
+    # all private and internal funtions with _
 
     @staticmethod
     def _parse_similar_tracks(raw: list[dict]) -> list[dict]:
@@ -175,7 +175,7 @@ class LastfmClient:
         images = {
             img["size"]: img["#text"]
             for img in t.get("image", [])
-            if "#text" in img  # deal with images
+            if "#text" in img
         }
         image_url: str | None = None
         for size in ("extralarge", "large", "medium", "small"): #attempted laddering for image return

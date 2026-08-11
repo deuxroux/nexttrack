@@ -83,7 +83,7 @@ export function useRecommendStream(): RecommendStreamHandle {
             }
             case "tags":
               setProgress("Matching tags…");
-              // no "ranking" server event — transition client-side after tags
+              // no "ranking" server event yet
               setTimeout(() => setProgress("Ranking…"), 50);
               break;
             case "error": {
@@ -91,7 +91,7 @@ export function useRecommendStream(): RecommendStreamHandle {
               setError(mapRecommendErrorCode(d.error));
               setProgress(null);
               setStreaming(false);
-              ctrl.abort();   // stop before the trailing `done` event arrives
+              ctrl.abort();   // stop to allow re-try
               break;
             }
             case "result": {
@@ -101,7 +101,7 @@ export function useRecommendStream(): RecommendStreamHandle {
               break;
             }
             case "done":
-              setStreaming(false); //fix for not allowing new recommendations
+              setStreaming(false); //allow new recommendation workflows
               ctrl.abort();
               break;
           }
@@ -122,7 +122,7 @@ export function useRecommendStream(): RecommendStreamHandle {
           setStreaming(false);
         },
       },
-    ).catch(() => { /* terminal errors already surfaced in state */ });
+    ).catch(() => { /*  errors to be fixed */ });
   }
 
   return { result, progress, error, streaming, run };

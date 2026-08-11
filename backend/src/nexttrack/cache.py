@@ -1,8 +1,8 @@
-# Logic for Redis Cache of Last.fm responses
+# Logic for Redis Cache of Last.fm responses. reused for spotify.
 import json
 import redis.asyncio as redis_asyncio
 
-#standardize by lowercasing everything (no dupes)
+#standardize (for dupe checking)
 def _norm(s: str) -> str:
     return s.lower().strip()
 
@@ -35,7 +35,7 @@ class LastfmCache:
         self.hits += 1
         return json.loads(raw)
 
-    #write to cache, based on the key. ttl is expiry date.
+    #write to cache, based on the key. ttl defines seconds to expiry.
     async def set(self, key: str, value: dict) -> None:
         await self._redis.set(key, json.dumps(value), ex=self._ttl)
 

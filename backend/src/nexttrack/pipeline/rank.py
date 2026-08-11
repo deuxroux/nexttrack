@@ -22,10 +22,8 @@ def rank(
     else:
         pool = list(candidates)
 
-    # Score and sort convex novelty/relevance blend (req 2.04)
+    # Score and sort convex novelty/relevance blend final scoring:
     # final = (1-alpha)*relevance + alpha*novelty_bonus
-    # --> ORIGINAL relevance = (W_SIM*norm_sim + W_TAG*tag_overlap) / W_TOTAL
-    #  with normalization norm_sim  = summed_similarity / max_sim  (max-normalised across pool)
     alpha = params.novelty / 100.0
     max_sim = max((c.summed_similarity for c in pool), default=1.0) or 1.0 #guards against empty pool or all zeroes
     scored: list[Candidate] = []
@@ -46,7 +44,7 @@ def rank(
             counts[key] = counts.get(key, 0) + 1
     scored = diverse
 
-    # Fallback: flag when the pool couldn't fill the requested length
+    # flag when the pool couldn't fill the requested length
     pool_exhausted = len(scored) < params.length
 
     return RecommendationResult(

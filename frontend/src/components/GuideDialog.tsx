@@ -13,7 +13,7 @@ export const GuideDialog = forwardRef<GuideDialogHandle>(function GuideDialog(_,
     open: () => dialogRef.current?.showModal(),
   }));
 
-  // click on the dialog element itself is the same as a backdrop click
+  // click on the dialog element does not count as backdrop click
   function handleBackdropClick(e: MouseEvent<HTMLDialogElement>) {
     if (e.target === e.currentTarget) dialogRef.current?.close();
   }

@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     app_name: str = "NextTrack"
     app_version: str = "0.1"
     redis_url: str = "redis://localhost:6379/0"
-    cache_ttl_lastfm_seconds: int = 14 * 24 * 3600  # 14 day TTL. expressed as days * hours * seconds
+    cache_ttl_lastfm_seconds: int = 14 * 24 * 3600  # 14 day TTL. expressed as d * h/d * s/h
 
     #  /resolve-spotify-url returns 503 if either field is empty.
     spotify_client_id: str = ""

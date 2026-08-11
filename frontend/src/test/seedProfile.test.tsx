@@ -21,7 +21,6 @@ const mockSeeds: SeedsHandle = {
   remove: vi.fn(),
 };
 
-//  necessary hooks wrapped in a component so React state is shared
 function Wrapper() {
   const params = useParams();
   const profile = useSeedProfile();

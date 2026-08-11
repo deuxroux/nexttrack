@@ -57,5 +57,5 @@ class SeedProfile(BaseModel):
 class RecommendationResult(BaseModel):
     candidates: list[Candidate]
     dropped_seeds: list[str]
-    params: RecommendationParams  # nested details from params that contributed
+    params: RecommendationParams  # nested details from params (echoed)
     pool_exhausted: bool = False  # flip true if fewer candidates existed than params.length after filtering

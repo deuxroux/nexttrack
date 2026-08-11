@@ -43,7 +43,7 @@ export function useCsvExport(): CsvExportHandle {
     }
 
     const blob = await res.blob();
-    // backend owns the filename — read Content-Disposition, fall back gracefully
+    // backend controls filename
     const disposition = res.headers.get("Content-Disposition") ?? "";
     const match = disposition.match(/filename="([^"]+)"/);
     const filename = match ? match[1] : "nexttrack_export.csv";
