@@ -1,6 +1,6 @@
 import { IconX } from "@tabler/icons-react";
 import { forwardRef, type MouseEvent, useImperativeHandle, useRef } from "react";
-import styles from "./PrivacyDialog.module.css";
+import styles from "./Dialog.module.css";
 
 export interface PrivacyDialogHandle {
   open: () => void;

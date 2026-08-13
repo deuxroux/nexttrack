@@ -1,3 +1,4 @@
+/* display:flex overrides browser lock on <dialog> */
 .dialog {
   border: none;
   padding: 0;
