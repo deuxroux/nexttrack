@@ -37,3 +37,20 @@ class StageTimings:
                     "n": float(n),
                 }
         return result
+
+
+class SimilarityTracker:
+    #  buffer of average similarity scores
+    # TODO: move to metrics?
+
+    def __init__(self, maxlen: int = 100) -> None:
+        self._buf: deque[float] = deque(maxlen=maxlen)
+
+    def record(self, avg_sim: float) -> None:
+        self._buf.append(avg_sim)
+
+    def summary(self) -> dict[str, float]:
+        data = list(self._buf)
+        if not data:
+            return {}
+        return {"mean": sum(data) / len(data), "n": float(len(data))}

@@ -1,5 +1,5 @@
 # THIS SUITE: prove statelessness. no endpoint must ever emit a Set-Cookie header.
-# Each route is hit with a minimal payload-- checking no cookie is set.
+# Each route is hit with a minimal payload checking no cookie is set.
 
 import pytest
 import httpx
@@ -26,11 +26,11 @@ async def _override_settings(monkeypatch):
     get_settings.cache_clear()
 
 
-# Payloads are chosen to get a fast response (422/400/503)
+# Payloads are chosen to get response (422/400/503)
 _ROUTES = [
     ("GET", "/health", None),
     ("GET", "/metrics", None),
-    # Empty seeds → 422 before any I/O
+    # Empty seeds generate 422 before any I/O
     ("POST", "/seed-profile", {"seeds": []}),
     (
         "POST",
@@ -42,7 +42,7 @@ _ROUTES = [
         "/recommend/stream",
         {"seeds": [], "params": {"novelty": 50, "artist_diversity": 3, "length": 10}},
     ),
-    # No Spotify creds configured → 503 before any Spotify I/O
+    # No Spotify creds configured generates 503 before any Spotify I/O
     (
         "POST",
         "/resolve-spotify-url",

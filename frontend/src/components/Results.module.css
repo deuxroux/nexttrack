@@ -118,6 +118,23 @@
   line-height: 1.5;
 }
 
+.simBadge {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-family: var(--font-ui);
+  color: var(--accent);
+  font-weight: var(--fw-ui-med);
+  white-space: nowrap;
+}
+
+.avgSim {
+  margin: 4px 0 0;
+  font-size: 0.8125rem;
+  font-family: var(--font-ui);
+  color: var(--text-2);
+  text-align: right;
+}
+
 .empty {
   margin: 0;
   font-size: 0.875rem;

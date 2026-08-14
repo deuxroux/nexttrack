@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { vi } from "vitest";
-import { Results } from "../components/Results";
 import type { components } from "../api/schema";
+import { Results } from "../components/Results";
 
 type RecommendationResult = components["schemas"]["RecommendationResult"];
 
@@ -80,5 +80,61 @@ describe("Results (3.23)", () => {
       />,
     );
     expect(screen.getByRole("alert")).toHaveTextContent(/something went wrong/i);
+  });
+
+  it("renders per-track similarity badge with percentage", () => {
+    // summed_similarity=0.85, contributing_seeds.length=1 → 85% match
+    render(
+      <Results result={mockResult} onExport={vi.fn()} exporting={false} exportError={null} />,
+    );
+    expect(screen.getByText("85% match")).toBeInTheDocument();
+  });
+
+  it("renders average similarity footer matching single-candidate result", () => {
+    render(
+      <Results result={mockResult} onExport={vi.fn()} exporting={false} exportError={null} />,
+    );
+    expect(screen.getByText("Avg. similarity: 85%")).toBeInTheDocument();
+  });
+
+  it("computes correct average similarity across multiple candidates", () => {
+    //case for combined (multi-track) contribution of a result. average over multiple seeds
+    const multiResult: RecommendationResult = {
+      ...mockResult,
+      candidates: [
+        { ...mockResult.candidates[0], summed_similarity: 0.80, contributing_seeds: ["Radiohead — Pyramid Song"] },
+        {
+          artist: "Massive Attack",
+          title: "Teardrop",
+          summed_similarity: 0.60,
+          tag_overlap: 1,
+          novelty_bonus: 0.2,
+          final_score: 0.7,
+          contributing_seeds: ["Radiohead — Pyramid Song"],
+          matched_tags: ["trip-hop"],
+          explanation: ["Similar to Radiohead — Pyramid Song"],
+        },
+      ],
+    };
+    render(
+      <Results result={multiResult} onExport={vi.fn()} exporting={false} exportError={null} />,
+    );
+    expect(screen.getByText("Avg. similarity: 70%")).toBeInTheDocument();
+  });
+
+  it("guards against zero division when contributing_seeds is empty", () => {
+    const guardResult: RecommendationResult = {
+      ...mockResult,
+      candidates: [
+        { ...mockResult.candidates[0], contributing_seeds: [] },
+      ],
+    };
+    render(
+      <Results result={guardResult} onExport={vi.fn()} exporting={false} exportError={null} />,
+    );
+    // confirm badge still renders a numeric percentage
+    //todo make sure this value makes sense in a real scenario
+    expect(screen.getByText(/\d+% match/)).toBeInTheDocument();
+    expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
   });
 });

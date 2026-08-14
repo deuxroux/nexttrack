@@ -14,8 +14,8 @@ describe('App shell', () => {
     expect(await screen.findByText('NextTrack')).toBeInTheDocument()
   })
 
-  it('shows Last.fm connected badge after health check resolves', async () => {
+  it('shows services connected badge after health check resolves', async () => {
     render(<App />)
-    expect(await screen.findByText('Last.fm connected')).toBeInTheDocument()
+    expect(await screen.findByText('Services connected')).toBeInTheDocument()
   })
 })

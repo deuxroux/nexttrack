@@ -26,7 +26,7 @@ from nexttrack.models import (
     Track,
     TrackHit,
 )
-from nexttrack.observability.timing import StageTimings
+from nexttrack.observability.timing import SimilarityTracker, StageTimings
 from nexttrack.pipeline.aggregate import aggregate_streaming, build_seed_profile
 from nexttrack.pipeline.rank import rank
 from nexttrack.spotify.client import SpotifyClient, SpotifyUnavailable
@@ -58,6 +58,7 @@ async def lifespan(app: FastAPI): #initiate everything before any request
     app.state.spotify_cache = spotify_cache
     app.state.spotify = spotify
     app.state.stage_timings = StageTimings()
+    app.state.similarity_stats = SimilarityTracker()
     try:
         yield
     finally:
@@ -174,6 +175,7 @@ async def metrics(req: Request) -> dict:
             "hit_rate": cache.hit_rate,
         },
         "timing": stage_timings.summary(),
+        "similarity": req.app.state.similarity_stats.summary(),
     }
 
 
@@ -251,6 +253,13 @@ async def recommend(
     total_ms = sum(per_stage.values())
     logger.info("recommend complete stage_ms=%s total_ms=%.1f", per_stage, total_ms)
 
+    if result.candidates:
+        avg_sim = sum(
+            c.summed_similarity / max(len(c.contributing_seeds), 1)
+            for c in result.candidates
+        ) / len(result.candidates)
+        req.app.state.similarity_stats.record(avg_sim)
+
     # if zero successful recommendations after ranking/filtering
     if not result.candidates:
         return JSONResponse(
@@ -324,6 +333,13 @@ async def recommend_stream(
         logger.info(
             "recommend/stream complete stage_ms=%s total_ms=%.1f", per_stage, total_ms
         )
+
+        if result.candidates:
+            avg_sim = sum(
+                c.summed_similarity / max(len(c.contributing_seeds), 1)
+                for c in result.candidates
+            ) / len(result.candidates)
+            req.app.state.similarity_stats.record(avg_sim)
 
         if not result.candidates:
             yield {
