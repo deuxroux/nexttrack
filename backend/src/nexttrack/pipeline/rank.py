@@ -13,7 +13,7 @@ def rank(
     dropped_seeds: list[str],
     params: RecommendationParams,
 ) -> RecommendationResult:
-    # Genre lock filter (req 3.17)
+    # Genre lock filter
     if params.genre_lock:
         genre_set = {g.lower() for g in params.genre_lock}
         pool = [

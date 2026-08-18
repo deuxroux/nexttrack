@@ -81,11 +81,22 @@ export function useRecommendStream(): RecommendStreamHandle {
               );
               break;
             }
-            case "tags":
-              setProgress("Matching tags…");
-              // no "ranking" server event yet
-              setTimeout(() => setProgress("Ranking…"), 50);
+            case "tags": {
+              const d = JSON.parse(ev.data) as {
+                candidates_done?: number;
+                candidates?: number;
+              };
+              if (d.candidates_done !== undefined && d.candidates !== undefined) {
+                if (d.candidates_done === d.candidates) {
+                  setProgress("Ranking…"); // final tag event server now ranking
+                } else {
+                  setProgress(`Matching tags… (${d.candidates_done}/${d.candidates})`);
+                }
+              } else {
+                setProgress("Matching tags…");
+              }
               break;
+            }
             case "error": {
               const d = JSON.parse(ev.data) as { error?: string };
               setError(mapRecommendErrorCode(d.error));

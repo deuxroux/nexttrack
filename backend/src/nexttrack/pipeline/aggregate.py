@@ -19,12 +19,18 @@ async def aggregate_streaming(
     dropped_seeds: list[str] = []
     seeds_total = len(seeds)
 
-    # first get per-seed similarity; seed-tag lookups.
+    # Accumulates all getTopTags I/O (seed-level + candidate-level) so the
+    # "tags" event reports true tag-fetch cost, not dedup bookkeeping.
+    tag_fetch_ms = 0.0
+
+    # Per-seed similarity + seed-tag lookups.
     for i, seed in enumerate(seeds, 1):
         seed_key = f"{seed.artist}/{seed.title}"
-        t0 = time.monotonic()
 
+        # similarity timer: getSimilar ONLY
+        t_sim = time.monotonic()
         sim_result = await lf.get_similar_tracks(seed.artist, seed.title)
+        sim_ms = (time.monotonic() - t_sim) * 1000
 
         # drop seed if both primary and artist fallback give nothing
         if sim_result.fallback_used and not sim_result.tracks:
@@ -33,7 +39,7 @@ async def aggregate_streaming(
                 stage="similarity",
                 seeds_done=i,
                 seeds_total=seeds_total,
-                elapsed_ms=(time.monotonic() - t0) * 1000,
+                elapsed_ms=sim_ms,
             )
             continue
 
@@ -41,7 +47,10 @@ async def aggregate_streaming(
         if sim_result.fallback_used:
             sim_fallback[seed_key] = sim_result.fallback_note
 
+        # seed-tag fetch: attributed to tag_fetch_ms, NOT to the similarity event
+        t_tag = time.monotonic()
         tags_result = await lf.get_top_tags(seed.artist, seed.title)
+        tag_fetch_ms += (time.monotonic() - t_tag) * 1000
         if tags_result.fallback_used:
             tag_fallback[seed_key] = tags_result.fallback_note
         for tag in tags_result.tags:
@@ -51,11 +60,11 @@ async def aggregate_streaming(
             stage="similarity",
             seeds_done=i,
             seeds_total=seeds_total,
-            elapsed_ms=(time.monotonic() - t0) * 1000,
+            elapsed_ms=sim_ms,
         )
 
-    # Then dedup by normalised (artist, title), summing match scores
-    t0 = time.monotonic()
+    # Dedup by normalised (artist, title), summing match scores.
+    # CPU-bound bookkeeping — deliberately not counted in the tags timing.
     seed_norm_keys: set[tuple[str, str]] = {
         _norm_key(seed.artist, seed.title) for seed in seeds
     }
@@ -79,14 +88,17 @@ async def aggregate_streaming(
                 seed_key, 0.0
             ) + float(t["match"])
 
-    # get candidate top tags; compute matched_tags, tag_overlap,etc.
-    #  Timer started earlier continues here so elapsed_ms covers whole workflow
+    # Candidate top tags; compute matched_tags, tag_overlap, novelty.
     max_playcount = max((e["playcount"] for e in pool.values()), default=1)
     pool_size = len(pool)
 
     candidates: list[Candidate] = []
-    for entry in pool.values():
+    for j, entry in enumerate(pool.values(), 1):
+        # candidate-tag fetch: the O(candidates) network stage; time it
+        t_tag = time.monotonic()
         tags_result = await lf.get_top_tags(entry["artist"], entry["title"])
+        tag_fetch_ms += (time.monotonic() - t_tag) * 1000
+
         candidate_tag_names = {t["name"] for t in tags_result.tags}
         matched = sorted(candidate_tag_names & seed_tag_profile)
         tag_overlap = len(matched) / len(seed_tag_profile) if seed_tag_profile else 0.0
@@ -109,7 +121,7 @@ async def aggregate_streaming(
                     explanation.append(note)
                     seen_notes.add(note)
 
-        #final score to be adjusted in rank.py
+        # final score to be adjusted in rank.py
         candidates.append(
             Candidate(
                 artist=entry["artist"],
@@ -124,14 +136,16 @@ async def aggregate_streaming(
             )
         )
 
-    yield StageEvent(
-        stage="tags",
-        candidates=pool_size,
-        elapsed_ms=(time.monotonic() - t0) * 1000,
-    )
+        # throttle: emit every 5 candidates and always on the last one
+        if j % 5 == 0 or j == pool_size:
+            yield StageEvent(
+                stage="tags",
+                candidates_done=j,
+                candidates=pool_size,
+                elapsed_ms=tag_fetch_ms,
+            )
 
     yield candidates, dropped_seeds
-
 
 async def build_seed_profile(lf: LastfmClient, seeds: list[Track]) -> SeedProfile:
     tag_counts: dict[str, int] = {}  # tag name -> number of seeds that carry it

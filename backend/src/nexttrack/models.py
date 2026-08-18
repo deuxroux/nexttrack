@@ -39,6 +39,7 @@ class StageEvent(BaseModel):
     stage: str
     seeds_done: int | None = None
     seeds_total: int | None = None
+    candidates_done: int | None = None
     candidates: int | None = None
     elapsed_ms: float = 0.0
 
